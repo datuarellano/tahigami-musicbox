@@ -1,0 +1,74 @@
+# Description
+
+The Tahigami Music Box D1-40 is a portable generative synthesizer that turns geometry into music. Using algorithms based on graph theory and geometric "blossoms," the device synthesizes unique soundscapes in real-time, generating new combinations of tonality, timbre, rhythm, and texture. The result is an endless, evolving stream of music designed for meditation, focus, and rest.
+
+Hand-built by Filipino artist Datu Arellano in Quezon City, Philippines
+
+2nd Edition is now available for pre-order
+https://forms.gle/GU26chhfXy9aVgum9
+
+
+# Sample Music
+Placeholder for SoundCloud embed code
+
+
+# Section with tabbed interface
+
+## Tab: Origin
+**The Origin: From Toxic Workspaces to "Aural Melatonin"**
+
+The D1-40 was born on **July 10, 2020**, during the COVID-19 pandemic. It originated from a personal request by Donna, Datu's wife, (then a lawyer, now a trial judge) who desired a portable instrument to soothe her mind during high-stress work weeks.
+
+While initially intended for relaxation and sleep, Datu and Donna soon discovered the D1-40 was equally essential for focus and concentration. Since its inception, it has served as a companion for meditation, a sleeping aid for families, and a tool to find stillness amidst everyday chaos like traffic or the stagnant monotony of idle waiting.
+
+**The Philosophy of Tahigami**
+
+The device is a digital manifestation of **Tahigami**, a rule-based art form developed by artist **Datu Arellano**. The name is derived from the Filipino word _tahi_ (stitch) and the Japanese _gami_ (paper)—literally **"stitching on paper"**. Tahigami employs concepts from **geometry and graph theory**, utilizing the triangle as its basic building block. In this system, points are called **punctures**, lines are **threads**, and triangles are **seeds**. When these elements form an abstract image, it is called a **blossom**.
+
+More about the Tahigami Project here.
+
+## Tab: How it Works
+**How it Works: The Generative Engine**
+
+Unlike traditional music players, the D1-40 contains **no pre-recorded samples**. It is a **generative synthesizer** that creates music in real-time based on the following logic:
+
+1. **Blossoms as Maps:** The device treats four specific geometric patterns—**Bundok** (Mountain), **Alon** (Wave), **Bituin** (Radial), and **Dahon** (Leaf)—as musical maps. Every puncture in a blossom is then mapped to a specific musical note that is quantized to a musical scale.
+
+2. **Algorithmic "Walks":** To create a melody, the device "walks" through the map by following different paths, such as the **contour** (the outer edge) or the **skeleton** (the internal structure).
+
+3. **Dynamic Parameters:** Every composition is unique because the device randomly selects the **tempo, key, scale, timbre, and rhythm**. It draws from **nine musical scales** (such as Lydian, Prometheus, and Major Pentatonic) chosen specifically for their ability to induce relaxation.
+
+4. **Complex Soundscapes:** The engine synthesizes a lead voice (the Blossom), a low bass accompaniment, and two harmonic voices, often accompanied by synthesized environmental sounds like ocean-like white noise, birds, radio static, or light percussive beats and rumbles.
+
+## Tab: Specs
+**Technical Specifications**
+
+The D1-40 is hand-built with high-performance components designed for dedicated audio synthesis:
+
+• **Brain:** Teensy 4.0 microcontroller board (by PJRC).
+
+• **Audio:** Teensy Audio Adapter Board
+
+• **Power:** 2500 mAh lithium-ion polymer battery, managed by a TC4056A charging module.
+
+• **Enclosure:** The 2nd Edition (2026) features a tough, 3D-printed enclosure made of **carbon fiber-reinforced plastic (PLA-CF)**.
+
+• **Interaction:** Includes a **light sensor** that allows users to change the "intensity" or quality of the music by altering the light in their surroundings.
+
+**Operational Rituals**
+
+• **The 40-Minute Cycle:** If left alone, the device automatically regenerates a new composition every 40 minutes. This makes it an **unconventional ritual timer** for work or study sessions.
+
+• **Breathing Room:** Upon powering up, the LED flashes white for a few seconds to remind the user to **slow down and take deep breaths**.
+
+• **Visual Feedback:** The LED color identifies the current blossom: **Red** (Bundok), **Blue** (Alon), **Yellow** (Bituin), and **Green** (Dahon).
+
+**Maintenance and Care**
+
+To ensure the longevity of the D1-40, users should follow these guidelines:
+
+• **Charging:** Always turn the device **OFF** while charging.
+
+• **Environment:** The device is **not water-resistant** and must be kept away from extreme heat and direct sunlight.
+
+• **Handling:** Avoid dropping the device.
