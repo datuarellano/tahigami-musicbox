@@ -1,3 +1,5 @@
+# CONTENT FOLLOWS:
+
 # Description
 
 The Tahigami Music Box D1-40 is a portable generative synthesizer that turns geometry into music. Using algorithms based on graph theory and geometric "blossoms," the device synthesizes unique soundscapes in real-time, generating new combinations of tonality, timbre, rhythm, and texture. The result is an endless, evolving stream of music designed for meditation, focus, and rest.
@@ -9,7 +11,7 @@ https://forms.gle/GU26chhfXy9aVgum9
 
 
 # Sample Music
-Placeholder for SoundCloud embed code
+Placeholder for SoundCloud embed codes (there will be four)
 
 
 # Section with tabbed interface
