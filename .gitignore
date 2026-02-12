@@ -35,3 +35,7 @@ coverage/
 # Temp
 *.tmp
 *.swp
+
+# pnpm
+pnpm-lock.yaml
+pnpm-debug.log
