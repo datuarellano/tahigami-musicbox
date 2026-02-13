@@ -14,6 +14,11 @@
     --color-text-light: #666666;
     --color-border: #e0e0e0;
     --color-accent: #ff0066;
+    /* leaf green for CTA */
+    --color-leaf: #2f9d3a;
+    --color-leaf-dark: #267a2f;
+    /* primary link color (site-wide alias for --color-leaf) */
+    --link-color: var(--color-leaf);
     --spacing-xs: 0.5rem;
     --spacing-sm: 1rem;
     --spacing-md: 2rem;
@@ -41,6 +46,29 @@ body {
 h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
     line-height: 1.2;
+}
+
+/* Utility: visually-hidden (keeps content available to screen readers) */
+.visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+.visually-hidden:focus,
+.visually-hidden:active {
+    position: static !important;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
 }
 
 h3 {
@@ -78,6 +106,32 @@ li {
     line-height: 1.7;
 }
 
+/* Global link styles — use the leaf-green link color for consistency */
+a {
+    color: var(--link-color);
+    text-decoration: none;
+    transition: color 0.15s ease, text-decoration 0.15s ease;
+}
+a:hover,
+a:focus {
+    color: var(--color-leaf-dark);
+    text-decoration: underline;
+}
+
+/* Footer contact links specifically */
+.footer-contact ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.footer-contact a {
+    color: var(--link-color);
+}
+
 /* ===========================
    Layout
    =========================== */
@@ -99,33 +153,18 @@ li {
 /* ===========================
    Navigation
    =========================== */
-.site-status {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 38px;
-    background-color: #111;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    z-index: 1100;
-}
+
 
 .nav {
     position: fixed;
-    top: 38px; /* pushed down so it doesn't overlap the site status */
+    top: 0; /* site-status removed — pin nav to very top */
     left: 0;
     right: 0;
     background-color: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--color-border);
     z-index: 1000;
-    padding: var(--spacing-sm) 0;
+    padding: var(--spacing-xs) 0; /* reduced vertical padding for a slimmer navbar */
 }
 
 .nav-container {
@@ -166,22 +205,49 @@ li {
     .nav-logo-text {
         font-size: 0.95rem;
     }
+
+    /* Stack nav on very small screens and move CTA to its own row */
+    .nav-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+        padding: 0.5rem var(--spacing-sm);
+    }
+    .nav-logo {
+        justify-content: flex-start;
+    }
+    .nav-cta {
+        width: 100%;
+        display: inline-flex;
+        justify-content: center;
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+    }
 }
 
 .nav-cta {
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--color-fg);
+    color: #ffffff;
+    background-color: var(--color-leaf);
     text-decoration: none;
     padding: 0.5rem 1.25rem;
-    border: 1.5px solid var(--color-fg);
-    border-radius: 2px;
-    transition: all 0.2s ease;
+    border: 1.5px solid var(--color-leaf-dark);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(47,157,58,0.12);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
 }
 
 .nav-cta:hover {
-    background-color: var(--color-fg);
-    color: var(--color-bg);
+    transform: translateY(-1px);
+    background-color: var(--color-leaf-dark);
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(47,157,58,0.18);
+}
+
+.nav-cta:focus-visible {
+    outline: 3px solid rgba(47,157,58,0.18);
+    outline-offset: 2px;
 }
 
 /* ===========================
@@ -194,7 +260,7 @@ li {
     justify-content: center;
     text-align: center;
     padding: var(--spacing-xl) var(--spacing-md);
-    margin-top: 60px;
+    margin-top: 48px; /* adjusted for slimmer nav */
     background-image: url('../images/hero_d1-40.JPG');
     background-size: cover;
     background-position: center center;
@@ -208,41 +274,54 @@ li {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%);
+    /* subtle radial vignette: soft center (~0.20) -> darker edges for focus */
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.20) 0%, rgba(0,0,0,0.28) 25%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.65) 100%);
     z-index: 0;
 }
 
 .hero-content {
-    max-width: 900px;
+    /* max-width: 900px; */
     position: relative; /* sits above overlay */
     z-index: 1;
 }
 
 .hero-title {
-    font-size: clamp(4rem, 15vw, 12rem);
-    font-weight: 300;
+    /* responsive: keep current 12rem as the max for wide screens */
+    font-size: clamp(3.5rem, 14vw, 12rem);
+    font-weight: 500;
     letter-spacing: -0.02em;
     line-height: 0.9;
-    margin-bottom: 0;
+    /* margin-bottom: 0; */
     color: #fff;
     text-shadow: 0 2px 12px rgba(0,0,0,0.45);
 }
 
-.hero-subtitle {
-    font-size: clamp(1.5rem, 4vw, 3rem);
-    font-weight: 300;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: var(--spacing-md);
-    color: rgba(255,255,255,0.92);
+/* Smaller modifier for the model name inside the hero title */
+.hero-title > span {
+    display: inline-block;             /* stays inline with the preceding text */
+    /* scale proportionally but cap at the current wide-screen size (0.65em) */
+    font-size: clamp(0.5em, 2.2vw, 0.65em);
+    font-weight: 500;                   /* slightly bolder for contrast */
+    line-height: 1;                     /* keep its own line-height */
+    vertical-align: baseline;           /* align with baseline of the main title */
+    transform: translateY(-0.06em);     /* subtle optical lift */
+    margin-left: 0.35rem;
+    letter-spacing: 0.02em;
+    color: #aeaeae;
+    /* opacity: 0.5; */
 }
 
 .hero-description {
-    font-size: clamp(1rem, 2vw, 1.25rem);
+    /* keep 2.5rem as the desktop maximum but scale down on smaller screens */
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    font-size: clamp(1rem, 2vw, 2.5rem);
     font-weight: 400;
-    max-width: 600px;
+    font-style: italic;
     margin: 0 auto;
+    padding: 0 0.5em;
     color: rgba(255,255,255,0.88);
+    background-color: rgba(0,0,0,0.60);
+    display: inline-block;
 }
 
 /* improve background positioning on smaller screens */
@@ -250,6 +329,44 @@ li {
     .hero {
         background-position: center top;
         padding-top: calc(var(--spacing-lg) + 30px);
+        margin-top: 38px; /* keep hero aligned on smaller screens */
+    }
+}
+
+/* Fix hero title line-spacing on narrow/mobile screens so wrapped lines breathe */
+@media (max-width: 480px) {
+    .hero-title {
+        line-height: 1.05;          /* slightly more space between wrapped lines */
+        letter-spacing: -0.01em;    /* reduce squeeze on small screens */
+        word-break: break-word;
+    }
+    .hero-title > span {
+        transform: translateY(0);  /* remove optical lift so baseline aligns when wrapped */
+        display: inline;           /* ensure it remains inline with text */
+        line-height: 1;            /* match adjusted title spacing */
+    }
+    .hero-content {
+        padding: 0 var(--spacing-sm); /* give the hero content a bit more horizontal breathing room */
+    }
+
+    /* Ensure the subtitle scales and keeps good spacing under wrapped hero title */
+    .hero-description {
+        font-size: clamp(0.9rem, 2.4vw, 1.1rem); /* slightly smaller on phones */
+        line-height: 1.35;                         /* more breathing room */
+        margin-top: 1.5rem;
+        max-width: 90%;                            /* prevent overflow */
+        text-wrap: balance;
+    }
+
+    /* Move Bandcamp CTA to its own row and make it full-width on narrow screens */
+    .bandcamp-inner { gap: 0.75rem; }
+    .bandcamp-content { display: flex; flex-direction: column; gap: 0.5rem; width: 100%; }
+    .bandcamp-content .nav-cta {
+        width: 100%;
+        display: inline-flex;
+        justify-content: center;
+        padding: 0.75rem 1rem;
+        margin-top: 0.25rem;
     }
 }
 
@@ -282,12 +399,112 @@ li {
     background-color: #fafafa;
 }
 
+/* Standard section heading */
 .section-title {
-    font-size: 2rem;
+    font-size: clamp(1.25rem, 2.8vw, 2rem);
     font-weight: 600;
-    margin-bottom: var(--spacing-lg);
+    margin: 0 0 var(--spacing-lg);
     text-align: center;
+    color: var(--color-fg);
 }
+
+/* Normalize heading spacing so section titles always have breathing room */
+h1, h2, h3, h4 {
+    margin-top: 0;
+    margin-bottom: var(--spacing-md);
+}
+
+/* Photos section styles */
+.section-photos {
+    background: #fff;
+    padding-top: var(--spacing-md);
+    padding-bottom: var(--spacing-lg);
+}
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+.photo-card {
+    overflow: hidden;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background: #f9f9f9;
+}
+.photo-card {
+    aspect-ratio: 1 / 1; /* force square cards */
+    overflow: hidden;
+}
+.photo-card img { 
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;      /* center-crop from the middle */
+    object-position: center center;
+    transition: transform 0.35s ease;
+}
+.photo-card:hover img { transform: scale(1.03); }
+
+@media (max-width: 992px) {
+    .photo-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+    .photo-grid { grid-template-columns: 1fr; gap: var(--spacing-sm); }
+    /* keep thumbnails square on mobile too */
+    .photo-card { aspect-ratio: 1 / 1; }
+    .photo-card img { height: 100%; }
+}
+
+/* ---------------------------
+   Lightbox styles
+   --------------------------- */
+.lightbox {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.85);
+    z-index: 2200;
+    padding: 2rem;
+}
+.lightbox.open { display: flex; }
+.lightbox-inner {
+    max-width: 1200px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.lightbox-inner img {
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: 6px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.lightbox .lightbox-close,
+.lightbox .lightbox-prev,
+.lightbox .lightbox-next {
+    position: absolute;
+    background: rgba(0,0,0,0.35);
+    color: #fff;
+    border: 0;
+    padding: 0.6rem 0.85rem;
+    font-size: 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.lightbox .lightbox-close { top: 1.25rem; right: 1.25rem; }
+.lightbox .lightbox-prev { left: 1.25rem; top: 50%; transform: translateY(-50%); }
+.lightbox .lightbox-next { right: 1.25rem; top: 50%; transform: translateY(-50%); }
+.lightbox .lightbox-close:focus,
+.lightbox .lightbox-prev:focus,
+.lightbox .lightbox-next:focus { outline: 3px solid rgba(255,255,255,0.15); }
+@media (max-width: 480px) {
+    .lightbox .lightbox-prev, .lightbox .lightbox-next { display: none; }
+}
+
 
 .music-grid {
     display: grid;
@@ -296,7 +513,9 @@ li {
 }
 
 .music-item {
-    aspect-ratio: 1;
+    /* allow item height to be driven by the embedded iframe */
+    height: auto;
+    display: block;
 }
 
 .soundcloud-placeholder {
@@ -312,13 +531,60 @@ li {
     font-weight: 500;
 }
 
+/* ---------------------------
+   Bandcamp promo card
+   --------------------------- */
+.bandcamp-card {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+}
+.bandcamp-inner {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    background: #fff;
+    border: 1px solid var(--color-border);
+    padding: var(--spacing-md);
+    border-radius: 6px;
+}
+/* responsive square thumb sized to the optimized 400px source */
+.bandcamp-thumb {
+    width: clamp(120px, 18vw, 200px);
+    height: clamp(120px, 18vw, 200px);
+    background: #f3f3f3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-light);
+    font-size: 0.875rem;
+    border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0; /* don't collapse on narrow containers */
+}
+.bandcamp-thumb a { display: block; width: 100%; height: 100%; }
+.bandcamp-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bandcamp-content { flex: 1; }
+.thumb-placeholder { text-align:center; padding: 0.25rem; }
+.bandcamp-content h3 { margin: 0 0 var(--spacing-sm); font-size:1.125rem; }
+.bandcamp-content p { margin-bottom: var(--spacing-sm); color:var(--color-text-light); }
+.bandcamp-content .nav-cta { padding: 0.5rem 1rem; border-radius: 4px; }
+
+@media (max-width: 768px) {
+    .bandcamp-inner { flex-direction: column; align-items: flex-start; }
+    .bandcamp-thumb { width: 100%; height: 220px; }
+}
+
 /* ===========================
    Tabs Section
    =========================== */
 .section-tabs {
     border-top: 1px solid var(--color-border);
+    /* faded background pattern: overlay a translucent white to reduce visual weight */
+    background-image: linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)), url(../images/drawing_light.svg);
+    background-repeat: no-repeat;
+    background-position: center top;
+    background-size: cover;
 }
-
 .tabs {
     max-width: 900px;
     margin: 0 auto;
@@ -429,5 +695,26 @@ li {
 
     .music-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Make SoundCloud embeds fill their card so sizes stay consistent */
+.soundcloud-placeholder iframe {
+    width: 100%;
+    height: auto; /* respect the iframe's intrinsic height */
+    display: block;
+    border: 0;
+}
+
+/* Desktop: force a 2×2 layout for the music grid on wide screens */
+@media (min-width: 1024px) {
+    .music-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: calc(var(--spacing-md) * 1.25);
+    }
+    .music-item {
+        /* let iframe determine height on desktop too */
+        height: auto;
+        display: block;
     }
 }
