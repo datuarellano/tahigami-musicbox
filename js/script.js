@@ -62,9 +62,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnPrev = lightbox.querySelector('.lightbox-prev');
     let current = 0;
 
+    // helper: pick the largest URL from an img's srcset if available
+    function largestFromSrcset(img) {
+        const srcset = img.getAttribute('srcset');
+        if (!srcset) return img.src;
+        // srcset format: "url1 600w, url2 1200w" -> pick the last url
+        const parts = srcset.split(',').map(s => s.trim()).filter(Boolean);
+        const last = parts[parts.length - 1];
+        const url = last.split(' ')[0];
+        return url || img.src;
+    }
+
+    // resolve the best full-size URL for an image trigger
+    function resolveFullSrc(img) {
+        // prefer dataset.full if it points to an absolute or assets path (but avoid unprocessed local paths)
+        const dataFull = img.dataset.full;
+        if (dataFull) {
+            // if dataset.full already points to a same-origin absolute path (starts with '/') or contains 'assets/' let it be used
+            if (dataFull.startsWith('/') || dataFull.includes('assets/') || dataFull.match(/^https?:\/\//)) {
+                return dataFull;
+            }
+            // otherwise fall back to largest candidate from srcset (build may have rewritten src/srcset to hashed assets)
+        }
+        return largestFromSrcset(img);
+    }
+
     function openLightbox(index) {
         const img = triggers[index];
-        const src = img.dataset.full || img.src;
+        const src = resolveFullSrc(img) || img.src;
         lbImage.src = src;
         lbImage.alt = img.alt || '';
         lightbox.classList.add('open');
@@ -84,14 +109,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showNext() {
         current = (current + 1) % triggers.length;
-        const src = triggers[current].dataset.full || triggers[current].src;
+        const src = resolveFullSrc(triggers[current]) || triggers[current].src;
         lbImage.src = src;
         lbImage.alt = triggers[current].alt || '';
     }
 
     function showPrev() {
         current = (current - 1 + triggers.length) % triggers.length;
-        const src = triggers[current].dataset.full || triggers[current].src;
+        const src = resolveFullSrc(triggers[current]) || triggers[current].src;
         lbImage.src = src;
         lbImage.alt = triggers[current].alt || '';
     }
