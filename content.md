@@ -9,6 +9,18 @@ Hand-built by Filipino artist Datu Arellano in Quezon City, Philippines
 2nd Edition is now available for pre-order
 https://forms.gle/GU26chhfXy9aVgum9
 
+# Video
+<iframe width="560" height="315" src="https://www.youtube.com/embed/SYxOamaftVg?si=SbB2GrItpz4r7TF_" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+# What They Say
+> "What a wonderful antidote to black mirrors."
+> – Joel Alagao, VFX Artist
+
+> "An anchor of calm, clarity, and relief... it has helped our family focus, sleep, and find stillness within the threads of daily routine."
+> – Donna dela Cruz, The Original First User
+
+> "In a world saturated with noise endlessly vying for our attention... Datu Arellano’s Tahigami Music Box cleverly circumvents the chaos. By generating unique and immersive soundscapes, this creative tool opens up a space for us to truly rest and declutter our weary, overstimulated minds."
+> – Chris Carandang, Clinical Psychologist and Musician
 
 # Sample Music
 Placeholder for SoundCloud embed codes (there will be four)
