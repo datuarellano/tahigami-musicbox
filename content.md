@@ -22,6 +22,15 @@ https://forms.gle/GU26chhfXy9aVgum9
 > "In a world saturated with noise endlessly vying for our attention... Datu Arellano’s Tahigami Music Box cleverly circumvents the chaos. By generating unique and immersive soundscapes, this creative tool opens up a space for us to truly rest and declutter our weary, overstimulated minds."
 > – Chris Carandang, Clinical Psychologist and Musician
 
+> "Life has been intensely overwhelming lately, but the Tahigami Music Box has been an absolute lifesaver for regulating stress and getting good sleep. I originally got it for focus, but it's become my go-to relaxation tool. As a huge believer in sound therapy, this is easily the best. I even got a second one to share with my family like an all-day stress regulation maintenance for the house. It is beautifully crafted, brilliantly designed, and I take it everywhere now, even at our art events. Filipino artists really make the coolest things!"
+> – Avie Felix, Curator, Educator & Founder of vMeme Contemporary Art Gallery
+
+> "I've been using the Tahigami Music Box at night and between work hours. It's a great way to carve out space just to be, without needing to physically move or isolate. Its generative nature also makes it a powerful tool for exploring new ideas on my instrument. Cycling through the different modes is like having emotional prompts to convey and communicate."
+> – Jam Villanueva, Musician, drummer of Ben&Ben
+
+> "The Tahigami Music Box has become part of my art practice, not just my companion during bedtime and bus trips. I collaborated with a movement artist for a live performance, projecting psychedelic visuals onto her as the music box guided her spontaneous flow. I've also used it for quiet, intimate stitching sessions during my embroidery workshops. Next up: it travels to Singapore this month for a friend's experimental film event, ahead of its future as a score source for my next film."
+> – Ja Turla, multidisciplinary artist
+
 # Sample Music
 Placeholder for SoundCloud embed codes (there will be four)
 
