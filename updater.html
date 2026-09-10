@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Box Updater — Tahigami</title>
+    <meta name="description" content="Update the firmware and set the timer on your Tahigami Music Box D1-40, straight from the browser.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/updater.css">
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-container">
+            <a class="nav-logo" href="./">
+                <img src="images/logo_tahigami-music.svg" alt="Tahigami logo" class="nav-logo-img">
+                <span class="nav-logo-text">TAHIGAMI</span>
+            </a>
+            <a href="./" class="nav-cta">← Back to the Music Box</a>
+        </div>
+    </nav>
+
+    <main class="updater">
+        <header class="updater-head">
+            <h1>Music Box Updater</h1>
+            <p class="updater-sub">
+                Update your Tahigami Music Box D1-40 and change how long it plays before it
+                re-composes itself. Plug the device into this computer with a USB cable to begin.
+            </p>
+        </header>
+
+        <div id="gate" class="gate" hidden></div>
+
+        <!-- ── Timer ─────────────────────────────────────────────── -->
+        <section id="timer-card" class="card">
+            <h2>Timer</h2>
+            <p class="card-lede">
+                By default the Music Box plays for <b>40 minutes</b>, then fades out and generates a
+                whole new piece. You can set that anywhere from 1 to 240 minutes.
+            </p>
+
+            <button type="button" id="timer-connect" class="btn btn-primary">Connect the Music Box</button>
+            <p id="timer-status" class="status"></p>
+
+            <div id="timer-form" hidden>
+                <label class="field">
+                    <span class="field-label">Minutes between regenerations</span>
+                    <span class="field-row">
+                        <input type="range" id="regen-range" min="5" max="120" step="1" value="40">
+                        <input type="number" id="regen-input" min="1" max="240" step="1" value="40" inputmode="numeric">
+                    </span>
+                </label>
+
+                <div class="btn-row">
+                    <button type="button" id="timer-save" class="btn btn-primary">Save to the Music Box</button>
+                </div>
+                <p id="active-note" class="hint"></p>
+
+                <div id="apply-now-row" class="sub-row" hidden>
+                    <span>The new length takes effect at the next regeneration.</span>
+                    <button type="button" id="apply-now" class="btn btn-ghost">Start a fresh cycle now</button>
+                </div>
+
+                <div id="restore-row" class="sub-row" hidden>
+                    <span>This device had a different value saved here before.</span>
+                    <button type="button" id="restore-btn" class="btn btn-ghost" data-value="">Restore</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Firmware ──────────────────────────────────────────── -->
+        <section id="firmware-card" class="card">
+            <h2>Firmware</h2>
+            <p id="firmware-disabled" class="status warn" hidden></p>
+            <p id="fw-current" class="card-lede">Connect the Music Box (Timer tool above) to see its installed version.</p>
+            <p id="fw-latest" class="hint">Checking for the latest firmware…</p>
+            <p id="fw-notes" class="fw-notes"></p>
+            <p id="fw-uptodate" class="status ok" hidden>Your Music Box is already up to date.</p>
+
+            <div class="btn-row">
+                <button type="button" id="fw-start" class="btn btn-primary" disabled>Update firmware</button>
+            </div>
+
+            <div id="fw-flash-row" class="btn-row" hidden>
+                <button type="button" id="fw-flash" class="btn btn-primary" disabled>Flash firmware now</button>
+            </div>
+
+            <p id="fw-status" class="status"></p>
+            <progress id="fw-progress" value="0" max="100" hidden></progress>
+            <pre id="fw-log" class="fw-log" hidden></pre>
+
+            <div id="fw-post" class="sub-row" hidden>
+                <span>Reconnect to check the new version and restore your timer setting.</span>
+                <button type="button" id="fw-reconnect" class="btn btn-ghost">Reconnect</button>
+            </div>
+
+            <details class="fw-help">
+                <summary>What happens during an update?</summary>
+                <ol>
+                    <li>The Music Box is rebooted into its built-in bootloader.</li>
+                    <li>The new firmware is downloaded, checked against a checksum, and written.</li>
+                    <li>The device restarts on its own and starts playing again.</li>
+                </ol>
+                <p>
+                    Keep the USB cable connected until it says <em>Done</em>. Your saved timer
+                    setting is kept across an update; if anything looks off afterwards, use
+                    <b>Reconnect</b> above to re-apply it.
+                </p>
+            </details>
+        </section>
+
+        <p class="browser-note">
+            Firmware updates use browser features available in <b>Chrome</b> and <b>Edge</b> on
+            desktop. Changing the timer also works in Firefox 151+. Safari is not supported.
+        </p>
+    </main>
+
+    <script type="module" src="/js/updater/main.js"></script>
+</body>
+</html>

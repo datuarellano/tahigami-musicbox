@@ -1,0 +1,13 @@
+{
+  "latest": "2.1.0",
+  "releases": [
+    {
+      "version": "2.1.0",
+      "proto": 2,
+      "file": "firmware/d1-40-2.1.0.hex",
+      "sha256": "",
+      "date": "",
+      "notes": "First release with the in-browser updater and adjustable timer."
+    }
+  ]
+}
