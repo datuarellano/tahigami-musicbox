@@ -31,6 +31,14 @@ export async function downloadFirmware(release) {
   if (!res.ok) throw new Error(`Firmware download failed (HTTP ${res.status}).`);
   const text = await res.text();
 
+  // A dev server / SPA host answers a missing file with index.html (200),
+  // not a 404 - catch that so it doesn't surface as a cryptic HEX parse error.
+  if (/^\s*</.test(text) || !/^\s*:/.test(text)) {
+    throw new Error(
+      `Firmware file not found on the server (${url}). Add the .hex to public/firmware/.`
+    );
+  }
+
   if (release.sha256) {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
     const got = bytesToHex(digest).toLowerCase();

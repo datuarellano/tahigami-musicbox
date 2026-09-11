@@ -5,8 +5,8 @@
       "version": "2.1.0",
       "proto": 2,
       "file": "firmware/d1-40-2.1.0.hex",
-      "sha256": "",
-      "date": "",
+      "sha256": "292b196f3acd17050c33e1cf1d2e3b10c37d464135782678672f9f33643deb56",
+      "date": "2026-09-11",
       "notes": "First release with the in-browser updater and adjustable timer."
     }
   ]
