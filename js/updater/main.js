@@ -385,10 +385,21 @@ function renderVersionsList() {
             : cmp > 0
               ? ['Update to', 'Update']
               : ['Reinstall', 'Reinstall'];
-      const ok = await modalConfirm(
-        `This removes browser-configurator support until you update again.`,
-        { title: `${titleVerb} firmware v${r.version}?`, okText: buttonVerb, cancelText: 'Cancel' }
-      );
+      // The "loses browser-configurator support" warning only makes sense
+      // when the unit currently HAS that support (proto >= 2) and the target
+      // release doesn't — e.g. rolling 2.1.0 back to 1.0.0. Going from a
+      // pre-config unit to another pre-config release isn't losing anything.
+      const hadConfig = cur && (state.device.proto ?? 0) >= 2;
+      const willHaveConfig = (r.proto ?? 0) >= 2;
+      const body =
+        hadConfig && !willHaveConfig
+          ? 'This removes browser-configurator support until you update again.'
+          : '';
+      const ok = await modalConfirm(body, {
+        title: `${titleVerb} firmware v${r.version}?`,
+        okText: buttonVerb,
+        cancelText: 'Cancel',
+      });
       if (ok) prepareDevice(r);
     });
     ul.appendChild(li);

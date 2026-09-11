@@ -209,6 +209,7 @@
 }
 .modal h3 { margin: 0 0 var(--spacing-sm); font-size: 1.1rem; }
 .modal p { margin: 0; line-height: 1.6; color: var(--color-text); white-space: pre-wrap; }
+.modal p:empty { display: none; }
 .modal #modal-input {
   display: block; width: 100%; margin-top: var(--spacing-sm);
   padding: 0.5em 0.7em; font: inherit;
