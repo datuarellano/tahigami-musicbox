@@ -113,7 +113,27 @@ function stashCfgSnapshot(sn, cfg) {
     regen_min: Number(cfg.regen_min),
     volume_cap: cfg.volume_cap != null ? Number(cfg.volume_cap) : undefined,
     led_brightness: cfg.led_brightness != null ? Number(cfg.led_brightness) : undefined,
+    bpm_min: cfg.bpm_min != null ? Number(cfg.bpm_min) : undefined,
+    bpm_max: cfg.bpm_max != null ? Number(cfg.bpm_max) : undefined,
   });
+}
+
+// bpm_min/bpm_max each reject a value that would invert the pair against
+// whatever the device currently holds - so raising the whole range needs
+// the ceiling moved first, and lowering it needs the floor moved first, or
+// the very first of the two SETs can get rejected by the other's still-old
+// value. Re-reads the device's current values rather than trusting a cached
+// copy, since this is also used right after a fresh flash/reset.
+async function applyBpmRangeOrdered(s, lo, hi) {
+  const cur = await s.getConfig();
+  const curMax = Number(cur.bpm_max);
+  if (lo > curMax) {
+    await s.setBpmMax(hi);
+    await s.setBpmMin(lo);
+  } else {
+    await s.setBpmMin(lo);
+    await s.setBpmMax(hi);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -300,18 +320,32 @@ async function loadConfigIntoForm() {
     show(restoreRow, false);
   }
 
-  // volume_cap / led_brightness only exist on schema >= 2 - a device running
-  // an earlier 2.1.0 build (schema 1) is still fully "unlocked" but just
-  // doesn't have these two keys yet.
-  const hasNewKeys = Number(state.device.cfg_schema || 0) >= 2;
-  show($('volcap-card'), hasNewKeys);
-  show($('led-card'), hasNewKeys);
-  show($('config-more-note'), !hasNewKeys);
-  if (hasNewKeys) {
+  // volume_cap / led_brightness need schema >= 2, bpm_min/bpm_max need
+  // schema >= 3 - a device on an earlier 2.1.0 build is still fully
+  // "unlocked" but just doesn't have some (or any) of these keys yet.
+  const schema = Number(state.device.cfg_schema || 0);
+  const hasV2Keys = schema >= 2;
+  const hasV3Keys = schema >= 3;
+  show($('volcap-card'), hasV2Keys);
+  show($('led-card'), hasV2Keys);
+  show($('bpm-card'), hasV3Keys);
+  show($('config-more-note'), !hasV3Keys);
+  if (!hasV3Keys) {
+    $('config-more-note').textContent = hasV2Keys
+      ? 'Update the firmware to unlock tempo-range controls here too.'
+      : 'Update the firmware to unlock volume, LED brightness, and tempo-range controls here too.';
+  }
+  if (hasV2Keys) {
     const vc = Number(cfg.volume_cap);
     const led = Number(cfg.led_brightness);
     $('volcap-range').value = $('volcap-input').value = String(vc);
     $('led-range').value = $('led-input').value = String(led);
+  }
+  if (hasV3Keys) {
+    const bpmMin = Number(cfg.bpm_min);
+    const bpmMax = Number(cfg.bpm_max);
+    $('bpm-min-range').value = $('bpm-min-input').value = String(bpmMin);
+    $('bpm-max-range').value = $('bpm-max-input').value = String(bpmMax);
   }
 }
 
@@ -424,10 +458,54 @@ async function saveLedBrightness() {
   }
 }
 
+// Keeps the two BPM sliders from crossing - moving one past the other pushes
+// the other along with it, same feel as a real dual-thumb range slider built
+// from two plain <input type="range">s.
+function wireBpmPair() {
+  const lo = $('bpm-min-range');
+  const hi = $('bpm-max-range');
+  const loNum = $('bpm-min-input');
+  const hiNum = $('bpm-max-input');
+  const clampPair = () => {
+    if (Number(lo.value) > Number(hi.value)) {
+      hi.value = hiNum.value = lo.value;
+    }
+    if (Number(hi.value) < Number(lo.value)) {
+      lo.value = loNum.value = hi.value;
+    }
+  };
+  lo.addEventListener('input', clampPair);
+  hi.addEventListener('input', clampPair);
+  loNum.addEventListener('input', clampPair);
+  hiNum.addEventListener('input', clampPair);
+}
+
+async function saveBpmRange() {
+  if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
+  let lo = Math.min(140, Math.max(40, Number($('bpm-min-input').value) || 40));
+  let hi = Math.min(140, Math.max(40, Number($('bpm-max-input').value) || 125));
+  if (lo > hi) [lo, hi] = [hi, lo]; // shouldn't happen (see wireBpmPair), but never send an inverted pair
+  $('bpm-save').disabled = true;
+  setConnStatus('Saving…');
+  try {
+    await applyBpmRangeOrdered(state.serial, lo, hi);
+    const res = await state.serial.saveConfig();
+    stashConfig(state.device.sn, { bpm_min: lo, bpm_max: hi });
+    setConnStatus(
+      res.includes('unchanged') ? 'Already saved — nothing changed.' : `Saved. Tempo will range ${lo}–${hi} BPM.`,
+      'ok'
+    );
+  } catch (e) {
+    setConnStatus(`Save failed: ${friendlyError(e)}`, 'err');
+  } finally {
+    $('bpm-save').disabled = false;
+  }
+}
+
 async function resetAllConfig() {
   if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
   const ok = await modalConfirm(
-    'This puts the timer, volume cap, and LED brightness back to how the Music Box shipped.',
+    'This puts the timer, volume cap, LED brightness, and tempo range back to how the Music Box shipped.',
     { title: 'Restore all settings to default?', okText: 'Restore defaults', cancelText: 'Cancel' }
   );
   if (!ok) return;
@@ -887,6 +965,10 @@ async function reconnectAndRestore() {
         await s.setLedBrightness(stash.led_brightness);
         restored = true;
       }
+      if (stash?.bpm_min != null && stash?.bpm_max != null) {
+        await applyBpmRangeOrdered(s, stash.bpm_min, stash.bpm_max);
+        restored = true;
+      }
       if (restored) await s.saveConfig();
       await loadConfigIntoForm();
       setFwStatus(`Reconnected — now running firmware ${info.fw || '?'}.`, 'ok');
@@ -917,6 +999,11 @@ function wire() {
   wireRangeNumber('led-range', 'led-input', 0, 200);
   $('led-save')?.addEventListener('click', saveLedBrightness);
   $('config-reset-all')?.addEventListener('click', resetAllConfig);
+
+  wireRangeNumber('bpm-min-range', 'bpm-min-input', 40, 140);
+  wireRangeNumber('bpm-max-range', 'bpm-max-input', 40, 140);
+  wireBpmPair();
+  $('bpm-save')?.addEventListener('click', saveBpmRange);
 
   $('fw-start')?.addEventListener('click', () => prepareDevice(state.latest));
   $('fw-flash')?.addEventListener('click', flashFirmware);

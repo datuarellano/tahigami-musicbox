@@ -81,6 +81,9 @@ export function friendlyError(e) {
   if (range) return `Enter a value between ${range[1]} and ${range[2]}.`;
   if (/^not_a_number/.test(msg)) return 'Enter a whole number.';
   if (/^unknown_cfg_key/.test(msg)) return 'This firmware doesn\u2019t recognize that setting.';
+  if (/^bpm_min_above_max|^bpm_max_below_min/.test(msg)) {
+    return 'The slowest tempo can\u2019t be faster than the fastest one \u2014 check the two values.';
+  }
   if (/^unknown_command/.test(msg)) return 'This firmware doesn\u2019t support that action yet.';
   if (/^cfg_save_busy/.test(msg)) {
     return 'The Music Box is in the middle of fading out \u2014 wait a moment and try saving again.';

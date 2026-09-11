@@ -213,6 +213,26 @@ export class MusicBoxSerial {
     return line;
   }
 
+  // The auto-pick tempo range. Each rejects a value that would invert the
+  // pair (bpm_min_above_max / bpm_max_below_min) - see friendlyError().
+  async setBpmMin(bpm) {
+    const line = await this.command(`!CFG_SET bpm_min ${bpm}`, {
+      expect: (l) => l.startsWith('!OK cfg bpm_min=') || l.startsWith('!ERR '),
+      timeoutMs: 1000,
+    });
+    if (line.startsWith('!ERR ')) throw new Error(line.slice(5));
+    return line;
+  }
+
+  async setBpmMax(bpm) {
+    const line = await this.command(`!CFG_SET bpm_max ${bpm}`, {
+      expect: (l) => l.startsWith('!OK cfg bpm_max=') || l.startsWith('!ERR '),
+      timeoutMs: 1000,
+    });
+    if (line.startsWith('!ERR ')) throw new Error(line.slice(5));
+    return line;
+  }
+
   async saveConfig() {
     const line = await this.command('!CFG_SAVE', {
       expect: (l) => l.startsWith('!OK cfg_save') || l.startsWith('!ERR '),
