@@ -372,9 +372,22 @@ function renderVersionsList() {
       <button type="button" class="btn btn-ghost version-row-btn">Install v${r.version}</button>
     `;
     li.querySelector('.version-row-btn').addEventListener('click', async () => {
+      // "Other versions" isn't always a step backward — from an old enough
+      // unit, one of these can be a real upgrade. Only call it a rollback
+      // when we actually know the installed version is newer than this one.
+      const cur = state.serial && state.device && !state.device.legacy ? state.device.fw : null;
+      const cmp = cur ? compareVersions(r.version, cur) : null;
+      const [titleVerb, buttonVerb] =
+        cmp === null
+          ? ['Install', 'Install']
+          : cmp < 0
+            ? ['Roll back to', 'Roll back']
+            : cmp > 0
+              ? ['Update to', 'Update']
+              : ['Reinstall', 'Reinstall'];
       const ok = await modalConfirm(
         `This removes browser-configurator support until you update again.`,
-        { title: `Roll back to firmware v${r.version}?`, okText: 'Roll back', cancelText: 'Cancel' }
+        { title: `${titleVerb} firmware v${r.version}?`, okText: buttonVerb, cancelText: 'Cancel' }
       );
       if (ok) prepareDevice(r);
     });
