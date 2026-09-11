@@ -187,9 +187,51 @@
                     </div>
                 </div>
 
-                <p class="hint roadmap-note">
-                    More controls are coming here: a way to <b>cap the volume</b> for quieter rooms,
-                    and control over <b>how bright the LED glows</b>.
+                <div id="volcap-card" class="card" hidden>
+                    <h2>Cap the volume</h2>
+                    <p class="card-lede">
+                        Set the loudest the volume knob is allowed to reach — handy for a quieter
+                        room. Below the cap the knob works exactly as before; turning it further
+                        past the cap just doesn't do anything more.
+                    </p>
+
+                    <label class="field">
+                        <span class="field-label">Loudest allowed volume (0–100%)</span>
+                        <span class="field-row">
+                            <input type="range" id="volcap-range" min="0" max="100" step="1" value="100">
+                            <input type="number" id="volcap-input" min="0" max="100" step="1" value="100" inputmode="numeric">
+                        </span>
+                    </label>
+
+                    <div class="btn-row">
+                        <button type="button" id="volcap-save" class="btn btn-primary">Save to the Music Box</button>
+                    </div>
+                    <p class="hint">Takes effect right away — saving just keeps it past a power-cycle.</p>
+                </div>
+
+                <div id="led-card" class="card" hidden>
+                    <h2>LED brightness</h2>
+                    <p class="card-lede">
+                        Set how bright the breathing LED glows — turn it down for a dark room, or
+                        all the way off if you'd rather not see it.
+                    </p>
+
+                    <label class="field">
+                        <span class="field-label">Brightness (0–100%)</span>
+                        <span class="field-row">
+                            <input type="range" id="led-range" min="0" max="100" step="1" value="100">
+                            <input type="number" id="led-input" min="0" max="100" step="1" value="100" inputmode="numeric">
+                        </span>
+                    </label>
+
+                    <div class="btn-row">
+                        <button type="button" id="led-save" class="btn btn-primary">Save to the Music Box</button>
+                    </div>
+                    <p class="hint">Takes effect right away — saving just keeps it past a power-cycle.</p>
+                </div>
+
+                <p id="config-more-note" class="hint roadmap-note" hidden>
+                    Update the firmware to unlock volume and LED brightness controls here too.
                 </p>
             </div>
         </section>

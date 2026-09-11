@@ -93,11 +93,13 @@ function readStash() {
     return {};
   }
 }
-function stashConfig(sn, regenMin) {
+function stashConfig(sn, values) {
   sn = sn || 'default';
   try {
     const all = readStash();
-    all[sn] = { regen_min: Number(regenMin), savedAt: Date.now() };
+    // Merge rather than replace: the three settings save independently, so
+    // saving just the timer shouldn't forget a previously-stashed volume cap.
+    all[sn] = { ...(all[sn] || {}), ...values, savedAt: Date.now() };
     localStorage.setItem(CFG_STORE, JSON.stringify(all));
   } catch {
     /* storage unavailable — fine */
@@ -287,6 +289,20 @@ async function loadConfigIntoForm() {
   } else {
     show(restoreRow, false);
   }
+
+  // volume_cap / led_brightness only exist on schema >= 2 - a device running
+  // an earlier 2.1.0 build (schema 1) is still fully "unlocked" but just
+  // doesn't have these two keys yet.
+  const hasNewKeys = Number(state.device.cfg_schema || 0) >= 2;
+  show($('volcap-card'), hasNewKeys);
+  show($('led-card'), hasNewKeys);
+  show($('config-more-note'), !hasNewKeys);
+  if (hasNewKeys) {
+    const vc = Number(cfg.volume_cap);
+    const led = Number(cfg.led_brightness);
+    $('volcap-range').value = $('volcap-input').value = String(vc);
+    $('led-range').value = $('led-input').value = String(led);
+  }
 }
 
 function syncFromRange() {
@@ -305,7 +321,7 @@ async function saveTimer() {
   try {
     await state.serial.setRegenMinutes(minutes);
     const res = await state.serial.saveConfig();
-    stashConfig(state.device.sn, minutes);
+    stashConfig(state.device.sn, { regen_min: minutes });
     await loadConfigIntoForm();
     setConnStatus(
       res.includes('unchanged')
@@ -340,6 +356,62 @@ async function restoreStashed(ev) {
   if (!v) return;
   $('regen-input').value = String(v);
   await saveTimer();
+}
+
+// A range and its paired number input, kept in sync both ways and clamped.
+function wireRangeNumber(rangeId, inputId, min, max) {
+  const range = $(rangeId);
+  const input = $(inputId);
+  range.addEventListener('input', () => {
+    input.value = range.value;
+  });
+  input.addEventListener('input', () => {
+    const v = Math.min(max, Math.max(min, Number(input.value) || min));
+    range.value = String(v);
+  });
+}
+
+// volume_cap and led_brightness apply live on the device already (see
+// music_box_config.h) - unlike the timer, there's no "takes effect next
+// cycle" wait, so these are just SET + SAVE with no apply-now step needed.
+async function saveVolCap() {
+  if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
+  const pct = Math.min(100, Math.max(0, Number($('volcap-input').value) || 0));
+  $('volcap-save').disabled = true;
+  setConnStatus('Saving…');
+  try {
+    await state.serial.setVolumeCap(pct);
+    const res = await state.serial.saveConfig();
+    stashConfig(state.device.sn, { volume_cap: pct });
+    setConnStatus(
+      res.includes('unchanged') ? 'Already saved — nothing changed.' : `Saved. Volume now capped at ${pct}%.`,
+      'ok'
+    );
+  } catch (e) {
+    setConnStatus(`Save failed: ${friendlyError(e)}`, 'err');
+  } finally {
+    $('volcap-save').disabled = false;
+  }
+}
+
+async function saveLedBrightness() {
+  if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
+  const pct = Math.min(100, Math.max(0, Number($('led-input').value) || 0));
+  $('led-save').disabled = true;
+  setConnStatus('Saving…');
+  try {
+    await state.serial.setLedBrightness(pct);
+    const res = await state.serial.saveConfig();
+    stashConfig(state.device.sn, { led_brightness: pct });
+    setConnStatus(
+      res.includes('unchanged') ? 'Already saved — nothing changed.' : `Saved. LED brightness set to ${pct}%.`,
+      'ok'
+    );
+  } catch (e) {
+    setConnStatus(`Save failed: ${friendlyError(e)}`, 'err');
+  } finally {
+    $('led-save').disabled = false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -606,7 +678,11 @@ async function prepareDevice(release) {
   if (proto >= 2) {
     try {
       const cfg = await s.getConfig();
-      stashConfig(state.device?.sn, Number(cfg.regen_min));
+      stashConfig(state.device?.sn, {
+        regen_min: Number(cfg.regen_min),
+        volume_cap: cfg.volume_cap != null ? Number(cfg.volume_cap) : undefined,
+        led_brightness: cfg.led_brightness != null ? Number(cfg.led_brightness) : undefined,
+      });
     } catch {
       /* best effort */
     }
@@ -766,10 +842,20 @@ async function reconnectAndRestore() {
     // mustn't tear down a working connection over it).
     try {
       const stash = readStash()[info.sn || 'default'];
-      if (stash && stash.regen_min) {
+      let restored = false;
+      if (stash?.regen_min) {
         await s.setRegenMinutes(stash.regen_min);
-        await s.saveConfig();
+        restored = true;
       }
+      if (stash?.volume_cap != null) {
+        await s.setVolumeCap(stash.volume_cap);
+        restored = true;
+      }
+      if (stash?.led_brightness != null) {
+        await s.setLedBrightness(stash.led_brightness);
+        restored = true;
+      }
+      if (restored) await s.saveConfig();
       await loadConfigIntoForm();
       setFwStatus(`Reconnected — now running firmware ${info.fw || '?'}.`, 'ok');
     } catch (e) {
@@ -793,6 +879,11 @@ function wire() {
   $('timer-save')?.addEventListener('click', saveTimer);
   $('apply-now')?.addEventListener('click', applyNow);
   $('restore-btn')?.addEventListener('click', restoreStashed);
+
+  wireRangeNumber('volcap-range', 'volcap-input', 0, 100);
+  $('volcap-save')?.addEventListener('click', saveVolCap);
+  wireRangeNumber('led-range', 'led-input', 0, 100);
+  $('led-save')?.addEventListener('click', saveLedBrightness);
 
   $('fw-start')?.addEventListener('click', () => prepareDevice(state.latest));
   $('fw-flash')?.addEventListener('click', flashFirmware);

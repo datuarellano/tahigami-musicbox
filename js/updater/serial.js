@@ -181,6 +181,26 @@ export class MusicBoxSerial {
     return line;
   }
 
+  // volume_cap / led_brightness apply live on the device the instant this
+  // resolves — saveConfig() is only needed to keep it past a power-cycle.
+  async setVolumeCap(percent) {
+    const line = await this.command(`!CFG_SET volume_cap ${percent}`, {
+      expect: (l) => l.startsWith('!OK cfg volume_cap=') || l.startsWith('!ERR '),
+      timeoutMs: 1000,
+    });
+    if (line.startsWith('!ERR ')) throw new Error(line.slice(5));
+    return line;
+  }
+
+  async setLedBrightness(percent) {
+    const line = await this.command(`!CFG_SET led_brightness ${percent}`, {
+      expect: (l) => l.startsWith('!OK cfg led_brightness=') || l.startsWith('!ERR '),
+      timeoutMs: 1000,
+    });
+    if (line.startsWith('!ERR ')) throw new Error(line.slice(5));
+    return line;
+  }
+
   async saveConfig() {
     const line = await this.command('!CFG_SAVE', {
       expect: (l) => l.startsWith('!OK cfg_save') || l.startsWith('!ERR '),
