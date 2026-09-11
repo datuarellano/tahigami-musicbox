@@ -421,6 +421,40 @@ let flashArmed = false;
 let flashInFlight = false;
 let flashTarget = null; // the release currently being prepared/flashed
 
+// Some units in the field (device #1-11, beta era, pre-July-2023) run a
+// different circuit board that this firmware cannot run on at all. The wire
+// protocol can't tell them apart from a compatible-but-outdated unit — both
+// just fail to answer !VERSION — so we ask the owner once per page visit,
+// right before the one action that actually risks stranding a sealed unit
+// (the 134-baud reboot poke below). Units already speaking the new protocol
+// are provably compatible already and skip this.
+let compatConfirmedThisVisit = false;
+
+function confirmPreProtocolHardware() {
+  if (compatConfirmedThisVisit) return true;
+  const raw = prompt(
+    'One quick check before we restart your Music Box.\n\n' +
+      'Look for the small number printed on the unit and type it in here:\n\n' +
+      '(This firmware only runs on unit #12 and later. Earlier units used a ' +
+      'different circuit board and can\u2019t take this update.)'
+  );
+  if (raw === null) return false; // owner cancelled
+  const n = parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(n) || n < 1) {
+    alert('That doesn\u2019t look like the unit number. Please try again.');
+    return false;
+  }
+  if (n < 12) {
+    alert(
+      `Unit #${n} uses an older circuit board that this update can\u2019t run on. ` +
+        'Please get in touch so we can help another way \u2014 nothing has been changed on your Music Box.'
+    );
+    return false;
+  }
+  compatConfirmedThisVisit = true;
+  return true;
+}
+
 function armConnectFlash() {
   if (flashArmed) return;
   flashArmed = true;
@@ -492,6 +526,14 @@ async function prepareDevice(release) {
     await s.requestBootloaderCommand();
     markSerialDisconnected('Disconnected for the update — reconnect when it finishes.');
   } else {
+    if (!confirmPreProtocolHardware()) {
+      setFwStatus('Update cancelled — nothing was changed.', 'warn');
+      $('fw-start').disabled = false;
+      $('fw-flash').disabled = true;
+      show($('fw-flash-row'), false);
+      flashTarget = null;
+      return;
+    }
     setFwStatus('Trying another way to restart it…');
     try {
       await s.pokeBootloader();
