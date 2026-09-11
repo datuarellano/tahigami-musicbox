@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Music Box Updater — Tahigami</title>
-    <meta name="description" content="Update the firmware and set the timer on your Tahigami Music Box D1-40, straight from the browser.">
+    <meta name="description" content="Update the firmware and configure your Tahigami Music Box D1-40, straight from the browser.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,89 +26,157 @@
         <header class="updater-head">
             <h1>Music Box Updater</h1>
             <p class="updater-sub">
-                Update your Tahigami Music Box D1-40 and change how long it plays before it
-                re-composes itself. Plug the device into this computer with a USB cable to begin.
+                Plug your Tahigami Music Box D1-40 into this computer with a USB cable, then connect
+                below to update its firmware or change how it behaves.
             </p>
         </header>
 
         <div id="gate" class="gate" hidden></div>
 
-        <!-- ── Timer ─────────────────────────────────────────────── -->
-        <section id="timer-card" class="card">
-            <h2>Timer</h2>
-            <p class="card-lede">
-                By default the Music Box plays for <b>40 minutes</b>, then fades out and generates a
-                whole new piece. You can set that anywhere from 1 to 240 minutes.
-            </p>
+        <div class="tabs" role="tablist" aria-label="Updater sections">
+            <button type="button" class="tab-btn is-active" id="tab-btn-status" role="tab" aria-controls="tab-status" aria-selected="true">Status</button>
+            <button type="button" class="tab-btn" id="tab-btn-firmware" role="tab" aria-controls="tab-firmware" aria-selected="false">Firmware</button>
+            <button type="button" class="tab-btn" id="tab-btn-config" role="tab" aria-controls="tab-config" aria-selected="false">Config</button>
+        </div>
 
-            <button type="button" id="timer-connect" class="btn btn-primary">Connect the Music Box</button>
-            <p id="timer-status" class="status"></p>
-
-            <div id="timer-form" hidden>
-                <label class="field">
-                    <span class="field-label">Minutes between regenerations</span>
-                    <span class="field-row">
-                        <input type="range" id="regen-range" min="5" max="120" step="1" value="40">
-                        <input type="number" id="regen-input" min="1" max="240" step="1" value="40" inputmode="numeric">
-                    </span>
-                </label>
-
-                <div class="btn-row">
-                    <button type="button" id="timer-save" class="btn btn-primary">Save to the Music Box</button>
-                </div>
-                <p id="active-note" class="hint"></p>
-
-                <div id="apply-now-row" class="sub-row" hidden>
-                    <span>The new length takes effect at the next regeneration.</span>
-                    <button type="button" id="apply-now" class="btn btn-ghost">Start a fresh cycle now</button>
+        <!-- ── STATUS ────────────────────────────────────────────── -->
+        <section id="tab-status" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-status">
+            <div class="card">
+                <div class="conn-row">
+                    <span id="conn-dot" class="conn-dot"></span>
+                    <span id="conn-text" class="conn-text">Not connected</span>
                 </div>
 
-                <div id="restore-row" class="sub-row" hidden>
-                    <span>This device had a different value saved here before.</span>
-                    <button type="button" id="restore-btn" class="btn btn-ghost" data-value="">Restore</button>
-                </div>
+                <button type="button" id="connect-btn" class="btn btn-primary">Connect the Music Box</button>
+                <p id="conn-status" class="status"></p>
+
+                <dl id="device-info" class="device-info" hidden>
+                    <div><dt>Firmware</dt><dd id="info-fw">—</dd></div>
+                    <div><dt>Serial no.</dt><dd id="info-sn">—</dd></div>
+                </dl>
+            </div>
+
+            <div class="visualizer-placeholder">
+                <span>Live Blossom visualizer — coming soon</span>
             </div>
         </section>
 
-        <!-- ── Firmware ──────────────────────────────────────────── -->
-        <section id="firmware-card" class="card">
-            <h2>Firmware</h2>
-            <p id="firmware-disabled" class="status warn" hidden></p>
-            <p id="fw-current" class="card-lede">Connect the Music Box (Timer tool above) to see its installed version.</p>
-            <p id="fw-latest" class="hint">Checking for the latest firmware…</p>
-            <p id="fw-notes" class="fw-notes"></p>
-            <p id="fw-uptodate" class="status ok" hidden>Your Music Box is already up to date.</p>
+        <!-- ── FIRMWARE ──────────────────────────────────────────── -->
+        <section id="tab-firmware" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-firmware" hidden>
+            <p id="fw-browser-note" class="status warn" hidden></p>
 
-            <div class="btn-row">
-                <button type="button" id="fw-start" class="btn btn-primary" disabled>Update firmware</button>
+            <div class="card">
+                <div class="fw-compare">
+                    <div class="fw-compare-col">
+                        <span class="fw-compare-label">Installed</span>
+                        <span id="fw-installed-version" class="fw-compare-version">—</span>
+                    </div>
+                    <div class="fw-compare-col">
+                        <span class="fw-compare-label">Latest</span>
+                        <span id="fw-latest-version" class="fw-compare-version">—</span>
+                    </div>
+                    <span id="fw-badge" class="fw-badge" hidden></span>
+                </div>
+                <p id="fw-hint" class="hint">Connect in the Status tab to see your installed version.</p>
+
+                <div class="whats-new">
+                    <button type="button" id="whats-new-btn" class="btn btn-ghost" hidden>
+                        What's new in <span id="whats-new-version"></span>
+                    </button>
+                    <div id="whats-new-popover" class="popover" hidden>
+                        <button type="button" id="whats-new-close" class="popover-close" aria-label="Close">×</button>
+                        <h3>What's new in <span id="whats-new-popover-version"></span></h3>
+                        <ul id="whats-new-list"></ul>
+                    </div>
+                </div>
+
+                <div class="btn-row">
+                    <button type="button" id="fw-start" class="btn btn-primary" disabled>Update firmware</button>
+                </div>
+                <div id="fw-flash-row" class="btn-row" hidden>
+                    <button type="button" id="fw-flash" class="btn btn-primary" disabled>Flash firmware now</button>
+                </div>
+
+                <p id="fw-status" class="status"></p>
+                <progress id="fw-progress" value="0" max="100" hidden></progress>
+                <pre id="fw-log" class="fw-log" hidden></pre>
+
+                <div id="fw-post" class="sub-row" hidden>
+                    <span>Reconnect to check the new version and restore your timer setting.</span>
+                    <button type="button" id="fw-reconnect" class="btn btn-ghost">Reconnect</button>
+                </div>
+
+                <details class="fw-help">
+                    <summary>What happens during an update?</summary>
+                    <ol>
+                        <li>The Music Box is rebooted into its built-in bootloader.</li>
+                        <li>The chosen firmware is downloaded, checked against a checksum, and written.</li>
+                        <li>The device restarts on its own and starts playing again.</li>
+                    </ol>
+                    <p>
+                        Keep the USB cable connected until it says <em>Done</em>. Your saved timer
+                        setting is kept across an update where the firmware supports it; if anything
+                        looks off afterwards, use <b>Reconnect</b> above.
+                    </p>
+                </details>
             </div>
 
-            <div id="fw-flash-row" class="btn-row" hidden>
-                <button type="button" id="fw-flash" class="btn btn-primary" disabled>Flash firmware now</button>
-            </div>
-
-            <p id="fw-status" class="status"></p>
-            <progress id="fw-progress" value="0" max="100" hidden></progress>
-            <pre id="fw-log" class="fw-log" hidden></pre>
-
-            <div id="fw-post" class="sub-row" hidden>
-                <span>Reconnect to check the new version and restore your timer setting.</span>
-                <button type="button" id="fw-reconnect" class="btn btn-ghost">Reconnect</button>
-            </div>
-
-            <details class="fw-help">
-                <summary>What happens during an update?</summary>
-                <ol>
-                    <li>The Music Box is rebooted into its built-in bootloader.</li>
-                    <li>The new firmware is downloaded, checked against a checksum, and written.</li>
-                    <li>The device restarts on its own and starts playing again.</li>
-                </ol>
-                <p>
-                    Keep the USB cable connected until it says <em>Done</em>. Your saved timer
-                    setting is kept across an update; if anything looks off afterwards, use
-                    <b>Reconnect</b> above to re-apply it.
+            <details class="card versions-card">
+                <summary>Other versions <span class="hint-inline">— for testing / rollback</span></summary>
+                <p class="hint">
+                    Older firmware does not support this configurator (no serial protocol for it) —
+                    flashing one locks the Config tab until you update again.
                 </p>
+                <ul id="versions-list" class="versions-list"></ul>
             </details>
+        </section>
+
+        <!-- ── CONFIG ────────────────────────────────────────────── -->
+        <section id="tab-config" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-config" hidden>
+            <div id="config-locked" class="card gate-card">
+                <p id="config-locked-msg">Connect the Music Box first to change its settings.</p>
+                <button type="button" id="config-locked-cta" class="btn btn-ghost">Go to Status</button>
+            </div>
+
+            <div id="config-unlocked" hidden>
+                <div class="card">
+                    <h2>Timer</h2>
+                    <p class="card-lede">
+                        By default the Music Box plays for <b>40 minutes</b>, then fades out and
+                        generates a whole new piece. You can set that anywhere from 1 to 240 minutes.
+                    </p>
+
+                    <div id="timer-form">
+                        <label class="field">
+                            <span class="field-label">Minutes between regenerations</span>
+                            <span class="field-row">
+                                <input type="range" id="regen-range" min="5" max="120" step="1" value="40">
+                                <input type="number" id="regen-input" min="1" max="240" step="1" value="40" inputmode="numeric">
+                            </span>
+                        </label>
+
+                        <div class="btn-row">
+                            <button type="button" id="timer-save" class="btn btn-primary">Save to the Music Box</button>
+                        </div>
+                        <p id="active-note" class="hint"></p>
+
+                        <div id="apply-now-row" class="sub-row" hidden>
+                            <span>The new length takes effect at the next regeneration.</span>
+                            <button type="button" id="apply-now" class="btn btn-ghost">Start a fresh cycle now</button>
+                        </div>
+
+                        <div id="restore-row" class="sub-row" hidden>
+                            <span>This device had a different value saved here before.</span>
+                            <button type="button" id="restore-btn" class="btn btn-ghost" data-value="">Restore</button>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="hint roadmap-note">
+                    More controls are planned here: a <b>max volume</b> ceiling (cap the physical knob
+                    for quieter rooms) and <b>LED brightness</b> (some units run brighter than others).
+                </p>
+            </div>
         </section>
 
         <p class="browser-note">

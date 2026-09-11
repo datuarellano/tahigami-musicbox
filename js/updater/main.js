@@ -1,11 +1,13 @@
 // Tahigami Music Box — web updater / configurator.
-// Two independent tools on one page:
-//   • Timer      — read/write the regeneration interval over WebSerial
-//   • Firmware   — reboot to HalfKay (WebSerial poke) and flash over WebHID
+// Three tabs sharing one connection:
+//   • Status    — connect over WebSerial, see what's installed
+//   • Firmware  — compare versions, flash (or roll back) over WebHID
+//   • Config    — read/write settings over WebSerial (locked until connected
+//                 on firmware that supports it)
 import { MusicBoxSerial } from './serial.js';
 import { HALFKAY_FILTER, parseIntelHex, flashImage } from './halfkay.js';
 import { fetchManifest, pickLatest, downloadFirmware } from './manifest.js';
-import { compareVersions, sleep } from './util.js';
+import { compareVersions } from './util.js';
 
 const $ = (id) => document.getElementById(id);
 const show = (el, on = true) => el && el.toggleAttribute('hidden', !on);
@@ -14,10 +16,24 @@ const CFG_STORE = 'tahigami.updater.cfg'; // { [sn]: { regen_min, savedAt } }
 const state = {
   serial: null,
   device: null, // { legacy, proto, fw, sn, ... }
-  hid: null,
   manifest: null,
   latest: null,
+  fwImages: {}, // version -> parsed HalfKay image, cached per version
 };
+
+// ---------------------------------------------------------------------------
+// tabs
+// ---------------------------------------------------------------------------
+const TABS = ['status', 'firmware', 'config'];
+
+function switchTab(name) {
+  for (const t of TABS) {
+    const active = t === name;
+    show($(`tab-${t}`), active);
+    $(`tab-btn-${t}`).classList.toggle('is-active', active);
+    $(`tab-btn-${t}`).setAttribute('aria-selected', String(active));
+  }
+}
 
 // ---------------------------------------------------------------------------
 // capability gate
@@ -26,8 +42,6 @@ function gate() {
   const hasSerial = 'serial' in navigator;
   const hasHid = 'hid' in navigator;
   const banner = $('gate');
-  const timerCard = $('timer-card');
-  const fwCard = $('firmware-card');
 
   if (hasSerial && hasHid) {
     show(banner, false);
@@ -36,13 +50,13 @@ function gate() {
   if (hasSerial && !hasHid) {
     banner.className = 'gate gate-warn';
     banner.innerHTML =
-      '<strong>Partial support.</strong> You can change the timer in this browser, ' +
-      'but firmware updates need Chrome or Edge on desktop.';
+      '<strong>Partial support.</strong> Status and Config work in this browser, but firmware ' +
+      'updates need Chrome or Edge on desktop.';
     show(banner, true);
-    $('firmware-disabled').textContent =
+    $('fw-browser-note').textContent =
       'Firmware updates need Chrome or Edge on desktop (this browser has no WebHID).';
-    show($('firmware-disabled'), true);
-    fwCard.classList.add('is-disabled');
+    show($('fw-browser-note'), true);
+    $('tab-firmware').classList.add('is-disabled');
     return true;
   }
   // no serial at all — Safari, Firefox mobile, etc.
@@ -53,8 +67,9 @@ function gate() {
     'device in with a USB cable. ' +
     '<button type="button" id="copy-link" class="link-btn">Copy this link</button>';
   show(banner, true);
-  timerCard.classList.add('is-disabled');
-  fwCard.classList.add('is-disabled');
+  $('tab-status').classList.add('is-disabled');
+  $('tab-firmware').classList.add('is-disabled');
+  $('tab-config').classList.add('is-disabled');
   $('copy-link')?.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(location.href);
@@ -89,20 +104,82 @@ function stashConfig(sn, regenMin) {
 }
 
 // ---------------------------------------------------------------------------
-// Timer tool
+// connection state — one source of truth, reflected into all three tabs
 // ---------------------------------------------------------------------------
-function markSerialDisconnected(msg, kind = 'warn') {
-  state.serial = null;
-  show($('timer-form'), false);
-  $('timer-connect').disabled = false;
-  $('timer-connect').textContent = 'Connect the Music Box';
-  if (msg) setTimerStatus(msg, kind);
+function setConnDot(mode) {
+  $('conn-dot').className = `conn-dot conn-dot-${mode}`;
 }
 
-function setTimerStatus(msg, kind = '') {
-  const el = $('timer-status');
+function setConnStatus(msg, kind = '') {
+  const el = $('conn-status');
   el.textContent = msg;
   el.className = `status ${kind}`;
+}
+
+let heartbeatTimer = null;
+function startHeartbeat() {
+  stopHeartbeat();
+  heartbeatTimer = setInterval(async () => {
+    if (!state.serial) return stopHeartbeat();
+    try {
+      await state.serial.command('!GET_STATUS', {
+        expect: (l) => l.startsWith('!STATUS'),
+        timeoutMs: 1500,
+        retries: 0,
+      });
+    } catch {
+      stopHeartbeat();
+      markSerialDisconnected('Connection lost — check the USB cable.', 'err');
+    }
+  }, 4000);
+}
+function stopHeartbeat() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+}
+
+function markSerialDisconnected(msg, kind = 'warn') {
+  state.serial = null;
+  stopHeartbeat();
+  if (msg) setConnStatus(msg, kind);
+  renderConnectionState();
+}
+
+// Reconciles: Status tab (dot/text/device info), Firmware tab (installed
+// version + badge + hint), Config tab (locked/unlocked + why).
+function renderConnectionState() {
+  const connected = !!state.serial && !!state.device;
+  const legacy = connected && state.device.legacy;
+
+  setConnDot(connected ? 'connected' : 'idle');
+  $('conn-text').textContent = connected
+    ? legacy
+      ? 'Connected — older firmware'
+      : 'Connected'
+    : 'Not connected';
+  $('connect-btn').textContent = connected ? 'Reconnect' : 'Connect the Music Box';
+  $('connect-btn').disabled = false;
+  show($('device-info'), connected);
+  if (connected) {
+    $('info-fw').textContent = legacy ? 'unknown (pre-2.1.0)' : state.device.fw || '?';
+    $('info-sn').textContent = state.device.sn || '—';
+  }
+
+  reflectFirmware();
+
+  const locked = !connected || legacy;
+  show($('config-locked'), locked);
+  show($('config-unlocked'), !locked);
+  if (!connected) {
+    $('config-locked-msg').textContent = 'Connect the Music Box first to change its settings.';
+    $('config-locked-cta').textContent = 'Go to Status';
+    $('config-locked-cta').onclick = () => switchTab('status');
+  } else if (legacy) {
+    $('config-locked-msg').textContent =
+      "This unit's firmware doesn't support the browser configurator yet.";
+    $('config-locked-cta').textContent = 'Go to Firmware';
+    $('config-locked-cta').onclick = () => switchTab('firmware');
+  }
 }
 
 async function connectSerial() {
@@ -112,42 +189,42 @@ async function connectSerial() {
   } catch {
     return; // user dismissed the chooser
   }
-  $('timer-connect').disabled = true;
-  setTimerStatus('Connecting…');
+  $('connect-btn').disabled = true;
+  setConnStatus('Connecting…');
   try {
     await s.open(115200);
     const info = await s.handshake();
     if (!info) {
       await s.close();
-      setTimerStatus(
+      setConnStatus(
         'No response. Close any other app using the device (Soundlab, a serial monitor) and try again.',
         'err'
       );
-      $('timer-connect').disabled = false;
+      $('connect-btn').disabled = false;
       return;
     }
     state.serial = s;
     state.device = info;
+    renderConnectionState();
+    startHeartbeat();
 
     if (info.legacy) {
-      setTimerStatus(
-        'Connected. This unit runs older firmware — update it below to unlock the timer setting.',
-        'warn'
-      );
-      show($('timer-form'), false);
-      reflectFirmware();
+      setConnStatus('Connected. Update the firmware to unlock the Config tab.', 'warn');
       return;
     }
 
     await loadConfigIntoForm();
-    reflectFirmware();
+    setConnStatus(`Connected to firmware ${info.fw || '?'}.`, 'ok');
   } catch (e) {
     await s.close().catch(() => {});
-    setTimerStatus(`Could not connect: ${e.message}`, 'err');
-    $('timer-connect').disabled = false;
+    setConnStatus(`Could not connect: ${e.message}`, 'err');
+    $('connect-btn').disabled = false;
   }
 }
 
+// ---------------------------------------------------------------------------
+// Config tab — Timer
+// ---------------------------------------------------------------------------
 async function loadConfigIntoForm() {
   const cfg = await state.serial.getConfig();
   const cur = Number(cfg.regen_min);
@@ -156,17 +233,12 @@ async function loadConfigIntoForm() {
   $('regen-range').value = String(Math.min(120, Math.max(5, cur)));
   state.device.cfg = cfg;
 
-  show($('timer-form'), true);
-  $('timer-connect').textContent = 'Reconnect';
-  $('timer-connect').disabled = false;
-
-  // Offer to restore a value this device had before (e.g. lost to a downgrade).
-  const stash = readStash()[state.device.sn || 'default'];
   const applyNowRow = $('apply-now-row');
   show(applyNowRow, cur !== active);
   $('active-note').textContent =
     cur !== active ? `Currently running a ${active}-minute cycle until the next regeneration.` : '';
 
+  const stash = readStash()[state.device.sn || 'default'];
   const restoreRow = $('restore-row');
   if (stash && stash.regen_min && stash.regen_min !== cur) {
     $('restore-btn').textContent = `Restore your saved ${stash.regen_min} min`;
@@ -175,11 +247,6 @@ async function loadConfigIntoForm() {
   } else {
     show(restoreRow, false);
   }
-
-  setTimerStatus(
-    `Connected to firmware ${state.device.fw || '?'}. Current setting: ${cur} minutes.`,
-    'ok'
-  );
 }
 
 function syncFromRange() {
@@ -194,20 +261,20 @@ async function saveTimer() {
   if (!state.serial) return markSerialDisconnected('Reconnect first.');
   const minutes = Math.min(240, Math.max(1, Number($('regen-input').value) || 40));
   $('timer-save').disabled = true;
-  setTimerStatus('Saving…');
+  setConnStatus('Saving…');
   try {
     await state.serial.setRegenMinutes(minutes);
     const res = await state.serial.saveConfig();
     stashConfig(state.device.sn, minutes);
     await loadConfigIntoForm();
-    setTimerStatus(
+    setConnStatus(
       res.includes('unchanged')
         ? 'Already saved — nothing changed.'
         : `Saved. New cycle length: ${minutes} minutes (applies at the next regeneration).`,
       'ok'
     );
   } catch (e) {
-    setTimerStatus(`Save failed: ${e.message}`, 'err');
+    setConnStatus(`Save failed: ${e.message}`, 'err');
   } finally {
     $('timer-save').disabled = false;
   }
@@ -219,9 +286,9 @@ async function applyNow() {
   try {
     await state.serial.regenerateNow();
     await loadConfigIntoForm();
-    setTimerStatus('Applied — the Music Box is starting a fresh cycle now.', 'ok');
+    setConnStatus('Applied — the Music Box is starting a fresh cycle now.', 'ok');
   } catch (e) {
-    setTimerStatus(`Could not apply now: ${e.message}`, 'err');
+    setConnStatus(`Could not apply now: ${e.message}`, 'err');
   } finally {
     $('apply-now').disabled = false;
   }
@@ -236,7 +303,7 @@ async function restoreStashed(ev) {
 }
 
 // ---------------------------------------------------------------------------
-// Firmware tool
+// Firmware tab
 // ---------------------------------------------------------------------------
 function setFwStatus(msg, kind = '') {
   const el = $('fw-status');
@@ -253,32 +320,74 @@ async function loadManifest() {
   try {
     state.manifest = await fetchManifest();
     state.latest = pickLatest(state.manifest);
-    $('fw-latest').textContent = `Latest firmware: ${state.latest.version}`;
-    if (state.latest.notes) $('fw-notes').textContent = state.latest.notes;
-    reflectFirmware();
+    $('fw-latest-version').textContent = state.latest.version;
+    $('whats-new-version').textContent = state.latest.version;
+    $('whats-new-popover-version').textContent = state.latest.version;
+    show($('whats-new-btn'), !!state.latest.notes);
+    renderVersionsList();
+    renderConnectionState();
   } catch (e) {
-    $('fw-latest').textContent = e.message;
+    $('fw-latest-version').textContent = '?';
+    $('fw-hint').textContent = e.message;
   }
 }
 
-// Reconcile the "what's installed vs available" line and button state.
+function renderVersionsList() {
+  const ul = $('versions-list');
+  ul.innerHTML = '';
+  const older = (state.manifest?.releases || []).filter((r) => r.version !== state.latest?.version);
+  for (const r of older) {
+    const li = document.createElement('li');
+    li.className = 'version-row';
+    const firstLine = (r.notes || '').split('\n')[0] || '';
+    li.innerHTML = `
+      <div class="version-row-info">
+        <span class="version-row-num">v${r.version}</span>
+        <span class="version-row-date">${r.date || ''}</span>
+        <span class="version-row-notes">${firstLine}</span>
+      </div>
+      <button type="button" class="btn btn-ghost version-row-btn">Install v${r.version}</button>
+    `;
+    li.querySelector('.version-row-btn').addEventListener('click', () => {
+      if (
+        confirm(
+          `Roll back to firmware v${r.version}? This removes browser-configurator support ` +
+            'until you update again.'
+        )
+      ) {
+        prepareDevice(r);
+      }
+    });
+    ul.appendChild(li);
+  }
+}
+
+// Reconcile installed-vs-latest for the Firmware tab.
 function reflectFirmware() {
-  const cur = state.device && !state.device.legacy ? state.device.fw : null;
-  const line = $('fw-current');
-  if (state.device?.legacy) {
-    line.textContent = 'Installed: older firmware (no version reported).';
-  } else if (cur) {
-    line.textContent = `Installed: ${cur}`;
+  const connected = !!state.serial && !!state.device;
+  const legacy = connected && state.device.legacy;
+  const cur = connected && !legacy ? state.device.fw : null;
+
+  $('fw-installed-version').textContent = legacy ? 'older' : cur || '—';
+  $('fw-hint').textContent = connected
+    ? legacy
+      ? 'This unit predates the version protocol, so its exact firmware is unknown.'
+      : ''
+    : 'Connect in the Status tab to see your installed version.';
+
+  const badge = $('fw-badge');
+  const upToDate = cur && state.latest && compareVersions(cur, state.latest.version) >= 0;
+  if (cur && state.latest) {
+    badge.textContent = upToDate ? '✓ Up to date' : 'Update available';
+    badge.className = `fw-badge ${upToDate ? 'fw-badge-ok' : 'fw-badge-warn'}`;
+    show(badge, true);
   } else {
-    line.textContent = 'Connect the Music Box (Timer tool above) to see its installed version.';
+    show(badge, false);
   }
 
   const canFlash = 'hid' in navigator && !!state.latest;
-  const upToDate =
-    cur && state.latest && compareVersions(cur, state.latest.version) >= 0 && !state.device?.legacy;
   $('fw-start').disabled = !canFlash;
   $('fw-start').textContent = upToDate ? 'Reinstall current firmware' : 'Update firmware';
-  show($('fw-uptodate'), !!upToDate);
 }
 
 // Teensy 4's bootloader auto-returns to the app after a few seconds if nothing
@@ -295,30 +404,34 @@ const HALFKAY_IS = (d) =>
 
 let flashArmed = false;
 let flashInFlight = false;
+let flashTarget = null; // the release currently being prepared/flashed
 
 function armConnectFlash() {
   if (flashArmed) return;
   flashArmed = true;
   navigator.hid.addEventListener('connect', (e) => {
-    if (HALFKAY_IS(e.device)) flashNow(e.device);
+    if (HALFKAY_IS(e.device) && flashTarget) flashNow(e.device, flashTarget);
   });
 }
 
-async function ensureFirmwareImage() {
-  if (state.fwImage) return state.fwImage;
-  setFwStatus('Downloading and verifying firmware…');
-  const hexText = await downloadFirmware(state.latest);
-  state.fwImage = parseIntelHex(hexText);
-  return state.fwImage;
+async function ensureFirmwareImage(release) {
+  if (state.fwImages[release.version]) return state.fwImages[release.version];
+  setFwStatus(`Downloading and verifying firmware v${release.version}…`);
+  const hexText = await downloadFirmware(release);
+  const image = parseIntelHex(hexText);
+  state.fwImages[release.version] = image;
+  return image;
 }
 
-async function prepareDevice() {
+async function prepareDevice(release) {
+  release = release || state.latest;
+  flashTarget = release;
   $('fw-start').disabled = true;
   show($('fw-flash-row'), true);
   $('fw-flash').disabled = false;
 
   try {
-    await ensureFirmwareImage();
+    await ensureFirmwareImage(release);
   } catch (e) {
     setFwStatus(e.message, 'err');
     $('fw-start').disabled = false;
@@ -339,6 +452,8 @@ async function prepareDevice() {
       if (info && !info.legacy) {
         state.serial = s;
         state.device = info;
+        renderConnectionState();
+        startHeartbeat();
       }
     } catch {
       setFwStatus(
@@ -376,7 +491,7 @@ async function prepareDevice() {
   try {
     const picked = await navigator.hid.requestDevice({ filters: [HALFKAY_FILTER] });
     if (picked[0]) {
-      await flashNow(picked[0]);
+      await flashNow(picked[0], release);
       return;
     }
   } catch {
@@ -398,9 +513,10 @@ async function prepareDevice() {
 
 async function flashFirmware() {
   // Manual button: HalfKay should already be on the bus.
+  const release = flashTarget || state.latest;
   $('fw-flash').disabled = true;
   try {
-    await ensureFirmwareImage();
+    await ensureFirmwareImage(release);
     armConnectFlash();
     let device = (await navigator.hid.getDevices()).find(HALFKAY_IS);
     if (!device) {
@@ -410,20 +526,20 @@ async function flashFirmware() {
     if (!device) {
       setFwStatus(
         'No bootloader device to select — the Music Box is not in update mode right now. ' +
-          'Click “Update firmware” (or run teensy_reboot) and try again quickly.',
+          'Click “Update firmware” and try again quickly.',
         'err'
       );
       $('fw-flash').disabled = false;
       return;
     }
-    await flashNow(device);
+    await flashNow(device, release);
   } catch (e) {
     setFwStatus(`Update failed: ${e.message}`, 'err');
     $('fw-flash').disabled = false;
   }
 }
 
-async function flashNow(device) {
+async function flashNow(device, release) {
   if (flashInFlight) return;
   flashInFlight = true;
   $('fw-flash').disabled = true;
@@ -432,8 +548,8 @@ async function flashNow(device) {
   show(bar, true);
   bar.value = 0;
   try {
-    const image = await ensureFirmwareImage();
-    setFwStatus('Writing firmware — keep the cable connected.', '');
+    const image = await ensureFirmwareImage(release);
+    setFwStatus(`Writing firmware v${release.version} — keep the cable connected.`, '');
     await flashImage(device, image, {
       onProgress: (done, total) => {
         bar.max = total;
@@ -441,7 +557,7 @@ async function flashNow(device) {
       },
       log: fwLog,
     });
-    setFwStatus(`Done. The Music Box is now running firmware ${state.latest.version}.`, 'ok');
+    setFwStatus(`Done. The Music Box is now running firmware ${release.version}.`, 'ok');
     show($('fw-post'), true);
   } catch (e) {
     setFwStatus(`Update failed: ${e.message}`, 'err');
@@ -453,6 +569,7 @@ async function flashNow(device) {
     $('fw-start').disabled = false;
   } finally {
     flashInFlight = false;
+    flashTarget = null;
   }
 }
 
@@ -462,20 +579,28 @@ async function reconnectAndRestore() {
     await s.request();
     await s.open(115200);
     const info = await s.handshake();
-    if (!info || info.legacy) {
+    if (!info) {
       await s.close();
       return;
     }
+    state.serial = s;
+    state.device = info;
+    renderConnectionState();
+
+    if (info.legacy) {
+      $('fw-post').hidden = true;
+      return;
+    }
+
+    startHeartbeat();
     const stash = readStash()[info.sn || 'default'];
     if (stash && stash.regen_min) {
       await s.setRegenMinutes(stash.regen_min);
       await s.saveConfig();
     }
-    state.serial = s;
-    state.device = info;
     await loadConfigIntoForm();
     $('fw-post').hidden = true;
-    setTimerStatus(`Reconnected. Timer restored to ${stash?.regen_min ?? '(default)'} minutes.`, 'ok');
+    setConnStatus(`Reconnected. Timer restored to ${stash?.regen_min ?? '(default)'} minutes.`, 'ok');
   } catch {
     await s.close().catch(() => {});
   }
@@ -483,17 +608,34 @@ async function reconnectAndRestore() {
 
 // ---------------------------------------------------------------------------
 function wire() {
-  $('timer-connect')?.addEventListener('click', connectSerial);
+  for (const t of TABS) $(`tab-btn-${t}`).addEventListener('click', () => switchTab(t));
+
+  $('connect-btn')?.addEventListener('click', connectSerial);
+
   $('regen-range')?.addEventListener('input', syncFromRange);
   $('regen-input')?.addEventListener('input', syncFromInput);
   $('timer-save')?.addEventListener('click', saveTimer);
   $('apply-now')?.addEventListener('click', applyNow);
   $('restore-btn')?.addEventListener('click', restoreStashed);
-  $('fw-start')?.addEventListener('click', prepareDevice);
+
+  $('fw-start')?.addEventListener('click', () => prepareDevice(state.latest));
   $('fw-flash')?.addEventListener('click', flashFirmware);
   $('fw-reconnect')?.addEventListener('click', reconnectAndRestore);
+
+  $('whats-new-btn')?.addEventListener('click', () => {
+    const list = $('whats-new-list');
+    list.innerHTML = '';
+    for (const line of (state.latest?.notes || '').split('\n').filter(Boolean)) {
+      const li = document.createElement('li');
+      li.textContent = line;
+      list.appendChild(li);
+    }
+    show($('whats-new-popover'), true);
+  });
+  $('whats-new-close')?.addEventListener('click', () => show($('whats-new-popover'), false));
 }
 
+renderConnectionState();
 if (gate()) {
   wire();
   loadManifest();
