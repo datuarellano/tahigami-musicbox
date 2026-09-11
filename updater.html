@@ -90,16 +90,21 @@
                     </div>
                 </div>
 
+                <p class="hint">
+                    Clicking below restarts your Music Box into update mode and asks your browser
+                    to connect to it. It may just say <b>“Unknown Device (16C0:0478)”</b> — that's
+                    normal; it's your Music Box. Go ahead and select it.
+                </p>
                 <div class="btn-row">
                     <button type="button" id="fw-start" class="btn btn-primary" disabled>Update firmware</button>
                 </div>
                 <div id="fw-flash-row" class="btn-row" hidden>
-                    <button type="button" id="fw-flash" class="btn btn-primary" disabled>Flash firmware now</button>
                     <p class="hint">
-                        Your browser will ask which device to connect to. It may just call it
-                        <b>“Unknown Device (16C0:0478)”</b> — that's normal, and it's your Music
-                        Box in update mode. Go ahead and select it.
+                        Clicking below will ask your browser which device to connect to. It may
+                        just call it <b>“Unknown Device (16C0:0478)”</b> — that's normal, and
+                        it's your Music Box in update mode. Go ahead and select it.
                     </p>
+                    <button type="button" id="fw-flash" class="btn btn-primary" disabled>Flash firmware now</button>
                 </div>
 
                 <p id="fw-status" class="status"></p>

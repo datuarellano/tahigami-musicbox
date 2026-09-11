@@ -391,10 +391,16 @@ function renderVersionsList() {
       // pre-config unit to another pre-config release isn't losing anything.
       const hadConfig = cur && (state.device.proto ?? 0) >= 2;
       const willHaveConfig = (r.proto ?? 0) >= 2;
+      const configNote = hadConfig && !willHaveConfig
+        ? 'This removes browser-configurator support until you update again.\n\n'
+        : '';
+      // Confirming here restarts the device and asks the browser to connect
+      // to it right away, so this is the one moment guaranteed to be read
+      // before that picker appears — worth repeating the heads-up here too.
       const body =
-        hadConfig && !willHaveConfig
-          ? 'This removes browser-configurator support until you update again.'
-          : '';
+        configNote +
+        'Your browser will then ask which device to connect to. It may just say ' +
+        '“Unknown Device (16C0:0478)” — that’s normal; go ahead and select it.';
       const ok = await modalConfirm(body, {
         title: `${titleVerb} firmware v${r.version}?`,
         okText: buttonVerb,
