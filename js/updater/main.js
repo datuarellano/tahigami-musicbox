@@ -163,7 +163,7 @@ function renderConnectionState() {
       ? 'Connected — older firmware'
       : 'Connected'
     : 'Not connected';
-  $('connect-btn').textContent = connected ? 'Reconnect' : 'Connect the Music Box';
+  $('connect-btn').textContent = connected ? 'Refresh' : 'Connect the Music Box';
   $('connect-btn').disabled = false;
   show($('device-info'), connected);
   if (connected) {
@@ -697,6 +697,14 @@ async function flashNow(device, release) {
 
 async function reconnectAndRestore() {
   resetFlashSession();
+  if (state.serial) {
+    // Already connected — e.g. the owner used the Status tab's button in
+    // between. There's genuinely nothing to reconnect, so say that plainly
+    // instead of racing into a doomed second connection attempt on the same
+    // port (which used to surface as a bare "Already connected." error).
+    setFwStatus('Already connected — nothing to reconnect.', '');
+    return;
+  }
   $('fw-reconnect').disabled = true;
   setFwStatus('Reconnecting…', 'busy');
   const s = new MusicBoxSerial();
@@ -715,14 +723,22 @@ async function reconnectAndRestore() {
     }
 
     startHeartbeat();
-    const stash = readStash()[info.sn || 'default'];
-    if (stash && stash.regen_min) {
-      await s.setRegenMinutes(stash.regen_min);
-      await s.saveConfig();
-    }
-    await loadConfigIntoForm();
     $('fw-post').hidden = true;
-    setFwStatus(`Reconnected — timer restored to ${stash?.regen_min ?? '(default)'} minutes.`, 'ok');
+
+    // The connection itself is good from here on — a hiccup restoring a
+    // stashed setting shouldn't be reported as a failed reconnect (and
+    // mustn't tear down a working connection over it).
+    try {
+      const stash = readStash()[info.sn || 'default'];
+      if (stash && stash.regen_min) {
+        await s.setRegenMinutes(stash.regen_min);
+        await s.saveConfig();
+      }
+      await loadConfigIntoForm();
+      setFwStatus(`Reconnected — now running firmware ${info.fw || '?'}.`, 'ok');
+    } catch (e) {
+      setFwStatus(`Reconnected, but a saved setting couldn’t be restored: ${friendlyError(e)}`, 'warn');
+    }
   } catch (e) {
     await s.close().catch(() => {});
     setFwStatus(`Couldn’t reconnect: ${friendlyError(e)}`, 'err');
