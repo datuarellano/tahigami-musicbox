@@ -14,8 +14,8 @@
       "proto": 0,
       "file": "firmware/d1-40-2.0.0.hex",
       "sha256": "05cdcd3ac8b73fdae3fe7fd92fd76955ef4f2d236f4a276dfa0aa640410310ac",
-      "date": "2026-09-01",
-      "notes": "OOP architecture refactor.\nAudio glitch elimination.\nLDR-triggered chaos mode.\nUSB MIDI output.\nNo browser configurator support (predates the config protocol) - flashing this rolls back to a fixed 40-minute timer.\nRequires unit #12 or later \u2014 earlier units used a different circuit board and can't run this."
+      "date": "2026-02",
+      "notes": "Second edition era, shipped February 2026.\nAudio glitch elimination.\nLDR-triggered chaos mode.\nUSB MIDI output.\nNo browser configurator support (predates the config protocol) - flashing this rolls back to a fixed 40-minute timer.\nRequires unit #12 or later \u2014 earlier units used a different circuit board and can't run this."
     },
     {
       "version": "1.0.0",
