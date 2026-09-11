@@ -207,16 +207,6 @@ async function connectSerial() {
   try {
     await s.open(115200);
     const info = await s.handshake();
-    if (!info) {
-      await s.close();
-      setConnStatus(
-        'No response from the Music Box. Make sure no other app or browser tab is already ' +
-          'connected to it, then try again.',
-        'err'
-      );
-      $('connect-btn').disabled = false;
-      return;
-    }
     state.serial = s;
     state.device = info;
     renderConnectionState();
@@ -638,15 +628,6 @@ async function reconnectAndRestore() {
     await s.request();
     await s.open(115200);
     const info = await s.handshake();
-    if (!info) {
-      await s.close();
-      setFwStatus(
-        'No response from the Music Box. Make sure it finished restarting, then try again.',
-        'err'
-      );
-      $('fw-reconnect').disabled = false;
-      return;
-    }
     state.serial = s;
     state.device = info;
     renderConnectionState();

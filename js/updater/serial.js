@@ -141,7 +141,12 @@ export class MusicBoxSerial {
       }
       return { legacy: true, reason: 'status-no-version' };
     } catch {
-      return null;
+      // Genuinely nothing answered either probe. The port itself opened fine
+      // (otherwise we'd have thrown before getting here), so this is almost
+      // always a real D1-40 running firmware from before any serial protocol
+      // existed at all (v1.0.0, mid-2020) rather than a wrong device — treat
+      // it the same as any other legacy unit.
+      return { legacy: true, reason: 'silent' };
     }
   }
 
