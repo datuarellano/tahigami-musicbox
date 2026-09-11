@@ -8,6 +8,7 @@ import { MusicBoxSerial } from './serial.js';
 import { HALFKAY_FILTER, parseIntelHex, flashImage } from './halfkay.js';
 import { fetchManifest, pickLatest, downloadFirmware } from './manifest.js';
 import { compareVersions, friendlyError } from './util.js';
+import { modalAlert, modalConfirm, modalPrompt } from './modal.js';
 
 const $ = (id) => document.getElementById(id);
 const show = (el, on = true) => el && el.toggleAttribute('hidden', !on);
@@ -363,15 +364,12 @@ function renderVersionsList() {
       </div>
       <button type="button" class="btn btn-ghost version-row-btn">Install v${r.version}</button>
     `;
-    li.querySelector('.version-row-btn').addEventListener('click', () => {
-      if (
-        confirm(
-          `Roll back to firmware v${r.version}? This removes browser-configurator support ` +
-            'until you update again.'
-        )
-      ) {
-        prepareDevice(r);
-      }
+    li.querySelector('.version-row-btn').addEventListener('click', async () => {
+      const ok = await modalConfirm(
+        `This removes browser-configurator support until you update again.`,
+        { title: `Roll back to firmware v${r.version}?`, okText: 'Roll back', cancelText: 'Cancel' }
+      );
+      if (ok) prepareDevice(r);
     });
     ul.appendChild(li);
   }
@@ -430,24 +428,27 @@ let flashTarget = null; // the release currently being prepared/flashed
 // are provably compatible already and skip this.
 let compatConfirmedThisVisit = false;
 
-function confirmPreProtocolHardware() {
+async function confirmPreProtocolHardware() {
   if (compatConfirmedThisVisit) return true;
-  const raw = prompt(
-    'One quick check before we restart your Music Box.\n\n' +
-      'Look for the small number printed on the unit and type it in here:\n\n' +
-      '(This firmware only runs on unit #12 and later. Earlier units used a ' +
-      'different circuit board and can\u2019t take this update.)'
+  const raw = await modalPrompt(
+    'Look for the small number printed on the unit and type it in here.\n\n' +
+      'This firmware only runs on unit #12 and later. Earlier units used a ' +
+      'different circuit board and can\u2019t take this update.',
+    { title: 'One quick check before we restart your Music Box', placeholder: 'Unit number', okText: 'Continue' }
   );
   if (raw === null) return false; // owner cancelled
   const n = parseInt(String(raw).trim(), 10);
   if (!Number.isFinite(n) || n < 1) {
-    alert('That doesn\u2019t look like the unit number. Please try again.');
+    await modalAlert('That doesn\u2019t look like the unit number. Please try again.', {
+      title: 'Hmm, that\u2019s not a number',
+    });
     return false;
   }
   if (n < 12) {
-    alert(
+    await modalAlert(
       `Unit #${n} uses an older circuit board that this update can\u2019t run on. ` +
-        'Please get in touch so we can help another way \u2014 nothing has been changed on your Music Box.'
+        'Please get in touch so we can help another way \u2014 nothing has been changed on your Music Box.',
+      { title: 'This unit can\u2019t take this update' }
     );
     return false;
   }
@@ -526,7 +527,7 @@ async function prepareDevice(release) {
     await s.requestBootloaderCommand();
     markSerialDisconnected('Disconnected for the update — reconnect when it finishes.');
   } else {
-    if (!confirmPreProtocolHardware()) {
+    if (!(await confirmPreProtocolHardware())) {
       setFwStatus('Update cancelled — nothing was changed.', 'warn');
       $('fw-start').disabled = false;
       $('fw-flash').disabled = true;
