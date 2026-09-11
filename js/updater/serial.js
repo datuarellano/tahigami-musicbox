@@ -97,29 +97,65 @@ export class MusicBoxSerial {
 
   // Returns { legacy:false, fw, proto, ... } | { legacy:true, reason } | null
   async handshake() {
-    await sleep(200); // let the status-print firehose drain a little first
+    // Complete any half-line left in the firmware's line buffer by a previous
+    // session, then let the ~10 Hz status-print firehose settle so our reply
+    // isn't buried behind a burst of prose.
+    try {
+      await this._write('\n');
+    } catch {
+      /* ignore */
+    }
+    await sleep(400);
+
+    // Primary probe: !VERSION (ungated in firmware). Generous window/retries -
+    // Serial.print() on the device blocks up to ~120 ms when the USB TX buffer
+    // is congested.
     try {
       const line = await this.command('!VERSION', {
         expect: (l) => l.startsWith('!VERSION ') || l === '!ERR unknown_command VERSION',
-        timeoutMs: 750,
-        retries: 2,
+        timeoutMs: 1200,
+        retries: 3,
       });
       if (line.startsWith('!VERSION ')) {
         const kv = parseKV(line.slice('!VERSION '.length));
+        await this.setQuiet(true);
         return { legacy: false, proto: Number(kv.proto || 0), ...kv };
       }
       return { legacy: true, reason: 'no-version-command' };
     } catch {
-      try {
-        await this.command('!GET_STATUS', {
-          expect: (l) => l.startsWith('!STATUS'),
-          timeoutMs: 1500,
-          retries: 1,
-        });
-        return { legacy: true, reason: 'status-only' };
-      } catch {
-        return null;
+      /* fall through to the !STATUS fallback */
+    }
+
+    // Fallback: !STATUS. New firmware appends fw=/proto= to this line too, so a
+    // missed !VERSION window is NOT proof the unit is old.
+    try {
+      const status = await this.command('!GET_STATUS', {
+        expect: (l) => l.startsWith('!STATUS'),
+        timeoutMs: 2000,
+        retries: 2,
+      });
+      const kv = parseKV(status.replace(/^!STATUS\s*/, ''));
+      if (kv.fw) {
+        await this.setQuiet(true);
+        return { legacy: false, proto: Number(kv.proto || 0), fw: kv.fw, viaStatus: true, ...kv };
       }
+      return { legacy: true, reason: 'status-no-version' };
+    } catch {
+      return null;
+    }
+  }
+
+  // Silence the device's periodic status-print firehose for the session.
+  // Best-effort: older firmware answers !ERR and we simply move on.
+  async setQuiet(on) {
+    try {
+      await this.command(`!QUIET ${on ? 1 : 0}`, {
+        expect: (l) => l.startsWith('!OK quiet=') || l.startsWith('!ERR '),
+        timeoutMs: 600,
+        retries: 1,
+      });
+    } catch {
+      /* ignore */
     }
   }
 
@@ -185,6 +221,11 @@ export class MusicBoxSerial {
   }
 
   async close() {
+    try {
+      if (this.port?.writable && !this.port.writable.locked) await this.setQuiet(false);
+    } catch {
+      /* ignore */
+    }
     try {
       await this._reader?.cancel();
     } catch {

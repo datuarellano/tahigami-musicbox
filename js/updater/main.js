@@ -78,7 +78,7 @@ function readStash() {
   }
 }
 function stashConfig(sn, regenMin) {
-  if (!sn) return;
+  sn = sn || 'default';
   try {
     const all = readStash();
     all[sn] = { regen_min: Number(regenMin), savedAt: Date.now() };
@@ -153,7 +153,7 @@ async function loadConfigIntoForm() {
   $('timer-connect').disabled = false;
 
   // Offer to restore a value this device had before (e.g. lost to a downgrade).
-  const stash = readStash()[state.device.sn];
+  const stash = readStash()[state.device.sn || 'default'];
   const applyNowRow = $('apply-now-row');
   show(applyNowRow, cur !== active);
   $('active-note').textContent =
@@ -305,18 +305,18 @@ async function prepareDevice() {
       }
     }
 
-    setFwStatus('Waiting for the bootloader… (a few seconds)');
-    const dev = await waitForHalfKay(15000);
-    state.hid = dev; // may be null on a first run (no prior HID permission)
     show($('fw-flash-row'), true);
     $('fw-flash').disabled = false;
+    setFwStatus('Rebooting into update mode…');
+    const dev = await waitForHalfKay(8000);
+    state.hid = dev; // may be null on a first run (no prior HID permission)
     if (dev) {
-      setFwStatus('Update mode ready.', 'ok');
+      setFwStatus('Update mode ready — click “Flash firmware now”.', 'ok');
     } else {
       setFwStatus(
-        'The Music Box should now be in update mode (its light is off). Click “Flash firmware ' +
-          'now” and choose it from the list. If nothing appears, unplug it, plug it back in, ' +
-          'and try again.',
+        'If the Music Box has gone quiet and its light is off, it is in update mode: click ' +
+          '“Flash firmware now” and pick it from the list. If it is still playing, the reboot ' +
+          'did not take — unplug it, plug it back in, and try again.',
         'warn'
       );
     }
@@ -378,7 +378,11 @@ async function flashFirmware() {
       device = picked[0];
     }
     if (!device) {
-      setFwStatus('No bootloader device selected.', 'err');
+      setFwStatus(
+        'No bootloader device to select. The Music Box is not in update mode — go back to ' +
+          'step one (“Update firmware”) and let it reboot first.',
+        'err'
+      );
       $('fw-flash').disabled = false;
       return;
     }
@@ -421,7 +425,7 @@ async function reconnectAndRestore() {
       await s.close();
       return;
     }
-    const stash = readStash()[info.sn];
+    const stash = readStash()[info.sn || 'default'];
     if (stash && stash.regen_min) {
       await s.setRegenMinutes(stash.regen_min);
       await s.saveConfig();
