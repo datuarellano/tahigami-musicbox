@@ -105,6 +105,16 @@ function stashConfig(sn, values) {
     /* storage unavailable — fine */
   }
 }
+// Stashes all three settings straight from a !CFG_GET response - shared by
+// the pre-flash snapshot and "Restore all to default" so both stay in sync
+// with whatever the device is actually holding, not a stale local guess.
+function stashCfgSnapshot(sn, cfg) {
+  stashConfig(sn, {
+    regen_min: Number(cfg.regen_min),
+    volume_cap: cfg.volume_cap != null ? Number(cfg.volume_cap) : undefined,
+    led_brightness: cfg.led_brightness != null ? Number(cfg.led_brightness) : undefined,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // connection state — one source of truth, reflected into all three tabs
@@ -414,6 +424,32 @@ async function saveLedBrightness() {
   }
 }
 
+async function resetAllConfig() {
+  if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
+  const ok = await modalConfirm(
+    'This puts the timer, volume cap, and LED brightness back to how the Music Box shipped.',
+    { title: 'Restore all settings to default?', okText: 'Restore defaults', cancelText: 'Cancel' }
+  );
+  if (!ok) return;
+  $('config-reset-all').disabled = true;
+  setConnStatus('Restoring…', 'busy');
+  try {
+    await state.serial.resetConfig();
+    await state.serial.saveConfig();
+    // Re-read rather than assume the CFG_*_DEFAULT constants, and stash the
+    // real result - otherwise a stale stash from before the reset would
+    // silently undo it on the next flash-and-reconnect.
+    const cfg = await state.serial.getConfig();
+    stashCfgSnapshot(state.device.sn, cfg);
+    await loadConfigIntoForm();
+    setConnStatus('All settings restored to default.', 'ok');
+  } catch (e) {
+    setConnStatus(`Restore failed: ${friendlyError(e)}`, 'err');
+  } finally {
+    $('config-reset-all').disabled = false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Firmware tab
 // ---------------------------------------------------------------------------
@@ -678,11 +714,7 @@ async function prepareDevice(release) {
   if (proto >= 2) {
     try {
       const cfg = await s.getConfig();
-      stashConfig(state.device?.sn, {
-        regen_min: Number(cfg.regen_min),
-        volume_cap: cfg.volume_cap != null ? Number(cfg.volume_cap) : undefined,
-        led_brightness: cfg.led_brightness != null ? Number(cfg.led_brightness) : undefined,
-      });
+      stashCfgSnapshot(state.device?.sn, cfg);
     } catch {
       /* best effort */
     }
@@ -884,6 +916,7 @@ function wire() {
   $('volcap-save')?.addEventListener('click', saveVolCap);
   wireRangeNumber('led-range', 'led-input', 0, 200);
   $('led-save')?.addEventListener('click', saveLedBrightness);
+  $('config-reset-all')?.addEventListener('click', resetAllConfig);
 
   $('fw-start')?.addEventListener('click', () => prepareDevice(state.latest));
   $('fw-flash')?.addEventListener('click', flashFirmware);

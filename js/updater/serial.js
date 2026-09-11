@@ -201,6 +201,18 @@ export class MusicBoxSerial {
     return line;
   }
 
+  // Loads every setting's default into RAM (still needs saveConfig() to
+  // persist). regen_min still only takes effect at the next regeneration,
+  // same as any other regen_min change - !CFG_RESET doesn't skip that rule.
+  async resetConfig() {
+    const line = await this.command('!CFG_RESET', {
+      expect: (l) => l.startsWith('!OK cfg_reset') || l.startsWith('!ERR '),
+      timeoutMs: 1000,
+    });
+    if (line.startsWith('!ERR ')) throw new Error(line.slice(5));
+    return line;
+  }
+
   async saveConfig() {
     const line = await this.command('!CFG_SAVE', {
       expect: (l) => l.startsWith('!OK cfg_save') || l.startsWith('!ERR '),
