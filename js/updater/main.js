@@ -52,10 +52,10 @@ function gate() {
     banner.className = 'gate gate-warn';
     banner.innerHTML =
       '<strong>Almost there.</strong> Status and Config work in this browser, but updating ' +
-      'firmware needs Chrome or Edge on a computer.';
+      'firmware needs Chrome, Edge, Brave, or another Chromium-based browser on a computer.';
     show(banner, true);
     $('fw-browser-note').textContent =
-      'Updating firmware needs Chrome or Edge on a computer — this browser can\u2019t do it.';
+      'Updating firmware needs Chrome, Edge, Brave, or another Chromium-based browser on a computer — this browser can\u2019t do it.';
     show($('fw-browser-note'), true);
     $('tab-firmware').classList.add('is-disabled');
     return true;
@@ -64,7 +64,8 @@ function gate() {
   banner.className = 'gate gate-stop';
   banner.innerHTML =
     '<strong>This browser can’t talk to the Music Box.</strong> ' +
-    'Please open this page in <b>Chrome</b> or <b>Edge</b> on a computer, then plug the ' +
+    'Please open this page in <b>Chrome</b>, <b>Edge</b>, <b>Brave</b>, or another Chromium-based ' +
+    'browser on a computer, then plug the ' +
     'Music Box in with a USB cable. ' +
     '<button type="button" id="copy-link" class="link-btn">Copy this link</button>';
   show(banner, true);
