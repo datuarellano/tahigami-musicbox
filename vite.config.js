@@ -12,6 +12,12 @@ module.exports = defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        updater: path.resolve(__dirname, 'updater.html'),
+      },
+    },
   },
   resolve: {
     alias: {

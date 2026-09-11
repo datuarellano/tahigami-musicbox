@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Box Updater — Tahigami</title>
+    <meta name="description" content="Update the firmware and configure your Tahigami Music Box D1-40, straight from the browser.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/updater.css">
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-container">
+            <a class="nav-logo" href="./">
+                <img src="images/logo_tahigami-music.svg" alt="Tahigami logo" class="nav-logo-img">
+                <span class="nav-logo-text">TAHIGAMI</span>
+            </a>
+            <a href="./" class="nav-cta">← Back to the Music Box</a>
+        </div>
+    </nav>
+
+    <main class="updater">
+        <header class="updater-head">
+            <h1>Music Box Updater</h1>
+            <p class="updater-sub">
+                Plug your Tahigami Music Box D1-40 into this computer with a USB cable, then connect
+                below to update its firmware or change how it behaves.
+            </p>
+        </header>
+
+        <div id="gate" class="gate" hidden></div>
+
+        <div class="tabs" role="tablist" aria-label="Updater sections">
+            <button type="button" class="tab-btn is-active" id="tab-btn-status" role="tab" aria-controls="tab-status" aria-selected="true">Status</button>
+            <button type="button" class="tab-btn" id="tab-btn-firmware" role="tab" aria-controls="tab-firmware" aria-selected="false">Firmware</button>
+            <button type="button" class="tab-btn" id="tab-btn-config" role="tab" aria-controls="tab-config" aria-selected="false">Config</button>
+        </div>
+
+        <!-- ── STATUS ────────────────────────────────────────────── -->
+        <section id="tab-status" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-status">
+            <div class="card">
+                <div class="conn-row">
+                    <span id="conn-dot" class="conn-dot"></span>
+                    <span id="conn-text" class="conn-text">Not connected</span>
+                </div>
+
+                <button type="button" id="connect-btn" class="btn btn-primary">Connect the Music Box</button>
+                <p id="conn-status" class="status"></p>
+
+                <dl id="device-info" class="device-info" hidden>
+                    <div><dt>Firmware</dt><dd id="info-fw">—</dd></div>
+                    <div><dt>Serial no.</dt><dd id="info-sn">—</dd></div>
+                </dl>
+            </div>
+
+            <div class="visualizer-placeholder">
+                <span>Live Blossom visualizer — coming soon</span>
+            </div>
+        </section>
+
+        <!-- ── FIRMWARE ──────────────────────────────────────────── -->
+        <section id="tab-firmware" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-firmware" hidden>
+            <p id="fw-browser-note" class="status warn" hidden></p>
+
+            <div class="card">
+                <div class="fw-compare">
+                    <div class="fw-compare-col">
+                        <span class="fw-compare-label">Installed</span>
+                        <span id="fw-installed-version" class="fw-compare-version">—</span>
+                    </div>
+                    <div class="fw-compare-col">
+                        <span class="fw-compare-label">Latest</span>
+                        <span id="fw-latest-version" class="fw-compare-version">—</span>
+                    </div>
+                    <span id="fw-badge" class="fw-badge" hidden></span>
+                </div>
+                <p id="fw-hint" class="hint">Connect in the Status tab to see your installed version.</p>
+
+                <div class="whats-new">
+                    <button type="button" id="whats-new-btn" class="btn btn-ghost" hidden>
+                        What's new in <span id="whats-new-version"></span>
+                    </button>
+                    <div id="whats-new-popover" class="popover" hidden>
+                        <button type="button" id="whats-new-close" class="popover-close" aria-label="Close">×</button>
+                        <h3>What's new in <span id="whats-new-popover-version"></span></h3>
+                        <ul id="whats-new-list"></ul>
+                    </div>
+                </div>
+
+                <p class="hint">
+                    Clicking below restarts your Music Box into update mode and asks your browser
+                    to connect to it. It may just say <b>“Unknown Device (16C0:0478)”</b> — that's
+                    normal; it's your Music Box. Go ahead and select it.
+                </p>
+                <div class="btn-row">
+                    <button type="button" id="fw-start" class="btn btn-primary" disabled>Update firmware</button>
+                </div>
+                <div id="fw-flash-row" class="btn-row" hidden>
+                    <p class="hint">
+                        Clicking below will ask your browser which device to connect to. It may
+                        just call it <b>“Unknown Device (16C0:0478)”</b> — that's normal, and
+                        it's your Music Box in update mode. Go ahead and select it.
+                    </p>
+                    <button type="button" id="fw-flash" class="btn btn-primary" disabled>Flash firmware now</button>
+                </div>
+
+                <p id="fw-status" class="status"></p>
+                <progress id="fw-progress" value="0" max="100" hidden></progress>
+                <pre id="fw-log" class="fw-log" hidden></pre>
+
+                <div id="fw-post" class="sub-row" hidden>
+                    <span>Reconnect to check the new version.</span>
+                    <button type="button" id="fw-reconnect" class="btn btn-ghost">Reconnect</button>
+                </div>
+
+                <details class="fw-help">
+                    <summary>What happens when you update?</summary>
+                    <ol>
+                        <li>Your Music Box quietly steps into a safe setup mode built into the device.</li>
+                        <li>The new firmware is downloaded, double-checked for accuracy, and carefully written in.</li>
+                        <li>It restarts on its own and starts playing again — no buttons to press.</li>
+                    </ol>
+                    <p>
+                        Please keep the USB cable plugged in until you see <em>Done</em>. Your saved
+                        settings come along for the ride whenever the new firmware supports them.
+                        If anything looks off afterwards, just click <b>Reconnect</b> above. Along
+                        the way your browser will ask which device to connect to — it may show up
+                        with an unfriendly name like "Unknown Device"; that's just your Music Box
+                        in update mode, so pick it.
+                    </p>
+                </details>
+            </div>
+
+            <details class="card versions-card">
+                <summary>Other versions</summary>
+                <p class="hint">
+                    Install any other released version — handy for comparing how the Music Box
+                    used to sound and behave, or for bringing a very old unit forward a step at
+                    a time. None of these can talk to this app, so the Config tab locks itself
+                    again until you're back on the latest version.
+                </p>
+                <ul id="versions-list" class="versions-list"></ul>
+            </details>
+        </section>
+
+        <!-- ── CONFIG ────────────────────────────────────────────── -->
+        <section id="tab-config" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-config" hidden>
+            <div id="config-locked" class="card gate-card">
+                <p id="config-locked-msg">Connect the Music Box first to change its settings.</p>
+                <button type="button" id="config-locked-cta" class="btn btn-ghost">Go to Status</button>
+            </div>
+
+            <div id="config-unlocked" hidden>
+                <div class="card">
+                    <h2>
+                        <svg class="card-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <rect x="10" y="1" width="4" height="2" rx="1" fill="currentColor" />
+                            <line x1="12" y1="3" x2="12" y2="5" />
+                            <circle cx="12" cy="14" r="8" />
+                            <line x1="12" y1="14" x2="12" y2="9" />
+                            <line x1="12" y1="14" x2="15.3" y2="15.8" />
+                            <circle cx="12" cy="14" r="1" fill="currentColor" stroke="none" />
+                        </svg>
+                        Timer
+                    </h2>
+                    <p class="card-lede">
+                        By default the Music Box plays for <b>40 minutes</b>, then fades out and
+                        generates a whole new piece. You can set that anywhere from 1 to 240 minutes.
+                    </p>
+
+                    <div id="timer-form">
+                        <label class="field">
+                            <span class="field-label">Minutes between regenerations</span>
+                            <span class="field-row">
+                                <input type="range" id="regen-range" min="1" max="240" step="1" value="40">
+                                <input type="number" id="regen-input" min="1" max="240" step="1" value="40" inputmode="numeric">
+                            </span>
+                        </label>
+
+                        <div class="btn-row">
+                            <button type="button" id="timer-save" class="btn btn-primary">Save to the Music Box</button>
+                        </div>
+                        <p id="active-note" class="hint"></p>
+
+                        <div id="apply-now-row" class="sub-row" hidden>
+                            <span>The new length takes effect at the next regeneration.</span>
+                            <button type="button" id="apply-now" class="btn btn-ghost">Start a fresh cycle now</button>
+                        </div>
+
+                        <div id="restore-row" class="sub-row" hidden>
+                            <span>This device had a different value saved here before.</span>
+                            <button type="button" id="restore-btn" class="btn btn-ghost" data-value="">Restore</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="volcap-card" class="card" hidden>
+                    <h2>
+                        <svg class="card-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <rect x="3" y="9" width="4" height="6" />
+                            <path d="M7,9 L12,5 V19 L7,15 Z" />
+                            <path d="M15.5,8.7 A5,5 0 0 1 15.5,15.3" />
+                            <path d="M18.3,6 A9,9 0 0 1 18.3,18" />
+                        </svg>
+                        Cap the volume
+                    </h2>
+                    <p class="card-lede">
+                        Set the loudest the volume knob is allowed to reach — handy for a quieter
+                        room. Below the cap the knob works exactly as before; turning it further
+                        past the cap just doesn't do anything more.
+                    </p>
+
+                    <label class="field">
+                        <span class="field-label">Loudest allowed volume (0–100%)</span>
+                        <span class="field-row">
+                            <input type="range" id="volcap-range" min="0" max="100" step="1" value="100">
+                            <input type="number" id="volcap-input" min="0" max="100" step="1" value="100" inputmode="numeric">
+                        </span>
+                    </label>
+
+                    <div class="btn-row">
+                        <button type="button" id="volcap-save" class="btn btn-primary">Save to the Music Box</button>
+                    </div>
+                    <p class="hint">Takes effect right away — saving just keeps it past a power-cycle.</p>
+                </div>
+
+                <div id="led-card" class="card" hidden>
+                    <h2>
+                        <svg class="card-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="9.5" r="5.5" />
+                            <path d="M9.5,14.5 h5 v1.5 a1,1 0 0 1 -1,1 h-3 a1,1 0 0 1 -1,-1 Z" />
+                            <line x1="10" y1="19" x2="14" y2="19" />
+                            <line x1="10.5" y1="21" x2="13.5" y2="21" />
+                            <line x1="12" y1="0.5" x2="12" y2="2.5" />
+                            <line x1="18.5" y1="3" x2="17" y2="4.5" />
+                            <line x1="5.5" y1="3" x2="7" y2="4.5" />
+                            <line x1="20" y1="9.5" x2="18" y2="9.5" />
+                            <line x1="4" y1="9.5" x2="6" y2="9.5" />
+                        </svg>
+                        LED brightness
+                    </h2>
+                    <p class="card-lede">
+                        Set how bright the breathing LED glows — turn it down for a dark room, all
+                        the way off if you'd rather not see it, or past 100% for brighter than the
+                        original default.
+                    </p>
+
+                    <label class="field">
+                        <span class="field-label">Brightness (0–200%, 100 = original default)</span>
+                        <span class="field-row">
+                            <input type="range" id="led-range" min="0" max="200" step="1" value="100">
+                            <input type="number" id="led-input" min="0" max="200" step="1" value="100" inputmode="numeric">
+                        </span>
+                    </label>
+
+                    <div class="btn-row">
+                        <button type="button" id="led-save" class="btn btn-primary">Save to the Music Box</button>
+                    </div>
+                    <p class="hint">Takes effect right away — saving just keeps it past a power-cycle.</p>
+                </div>
+
+                <div id="bpm-card" class="card" hidden>
+                    <h2>
+                        <svg class="card-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <line x1="6" y1="21" x2="18" y2="21" />
+                            <path d="M8,21 L10.5,4 h3 L16,21 Z" />
+                            <line x1="12" y1="20" x2="15.3" y2="7.8" />
+                            <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none" />
+                            <circle cx="14.2" cy="11.5" r="1.3" fill="currentColor" stroke="none" />
+                        </svg>
+                        Tempo range
+                    </h2>
+                    <p class="card-lede">
+                        Set how slow or fast the Music Box is allowed to pick its tempo, each time
+                        it starts a new piece.
+                    </p>
+
+                    <label class="field">
+                        <span class="field-label">Slowest (BPM)</span>
+                        <span class="field-row">
+                            <input type="range" id="bpm-min-range" min="40" max="140" step="1" value="40">
+                            <input type="number" id="bpm-min-input" min="40" max="140" step="1" value="40" inputmode="numeric">
+                        </span>
+                    </label>
+                    <label class="field">
+                        <span class="field-label">Fastest (BPM)</span>
+                        <span class="field-row">
+                            <input type="range" id="bpm-max-range" min="40" max="140" step="1" value="125">
+                            <input type="number" id="bpm-max-input" min="40" max="140" step="1" value="125" inputmode="numeric">
+                        </span>
+                    </label>
+
+                    <div class="btn-row">
+                        <button type="button" id="bpm-save" class="btn btn-primary">Save to the Music Box</button>
+                    </div>
+                    <p class="hint">Takes effect right away — saving just keeps it past a power-cycle.</p>
+                </div>
+
+                <div id="config-reset-row" class="sub-row">
+                    <span>Puts the timer, volume cap, LED brightness, and tempo range back to how the Music Box shipped.</span>
+                    <button type="button" id="config-reset-all" class="btn btn-ghost">Restore all to default</button>
+                </div>
+
+                <p id="config-more-note" class="hint roadmap-note" hidden>
+                    Update the firmware to unlock volume and LED brightness controls here too.
+                </p>
+            </div>
+        </section>
+
+        <p class="browser-note">
+            Updating firmware works in <b>Chrome</b>, <b>Edge</b>, <b>Brave</b>, or most other
+            Chromium-based browsers on a computer. Changing the settings also works in Firefox.
+            Safari can't do either of these yet.
+        </p>
+    </main>
+
+    <footer class="footer">
+        <p>
+            Firmware updates for the Music Box are free, forever. If it's been good
+            to you, a coffee is always appreciated —
+            <a href="https://buymeacoffee.com/datuarellano" target="_blank" rel="noopener">Buy me a coffee ☕</a>.
+        </p>
+    </footer>
+
+    <script type="module" src="/js/updater/main.js"></script>
+</body>
+</html>
