@@ -189,6 +189,7 @@ function renderConnectionState() {
 }
 
 async function connectSerial() {
+  resetFlashSession();
   let s;
   if (state.serial) {
     // "Reconnect" while already connected: drop the current session and
@@ -337,6 +338,22 @@ function fwLog(msg) {
   const el = $('fw-log');
   el.hidden = false;
   el.textContent = msg;
+}
+
+// Clears the leftover progress bar / log / "Flash firmware now" button from
+// a previous update attempt. Without this, connecting fresh after a flash
+// (finished or not) left the old "Firmware written, restarting…" furniture
+// on screen next to a brand-new "Reconnected" status, which read as if the
+// page couldn't make up its mind about what just happened.
+function resetFlashSession() {
+  const bar = $('fw-progress');
+  show(bar, false);
+  bar.value = 0;
+  $('fw-log').hidden = true;
+  $('fw-log').textContent = '';
+  show($('fw-flash-row'), false);
+  $('fw-flash').disabled = true;
+  show($('fw-post'), false);
 }
 
 async function loadManifest() {
@@ -677,6 +694,7 @@ async function flashNow(device, release) {
 }
 
 async function reconnectAndRestore() {
+  resetFlashSession();
   $('fw-reconnect').disabled = true;
   const s = new MusicBoxSerial();
   try {
