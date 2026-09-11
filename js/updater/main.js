@@ -209,7 +209,8 @@ async function connectSerial() {
     }
   }
   $('connect-btn').disabled = true;
-  setConnStatus('Connecting…');
+  setConnDot('connecting');
+  setConnStatus('Connecting…', 'busy');
   try {
     await s.open(115200);
     const info = await s.handshake();
@@ -239,6 +240,7 @@ async function connectSerial() {
     setConnStatus(`Connected to firmware ${info.fw || '?'}.`, 'ok');
   } catch (e) {
     await s.close().catch(() => {});
+    setConnDot('idle');
     setConnStatus(`Could not connect: ${friendlyError(e)}`, 'err');
     $('connect-btn').disabled = false;
   }
@@ -520,7 +522,7 @@ function armConnectFlash() {
 
 async function ensureFirmwareImage(release) {
   if (state.fwImages[release.version]) return state.fwImages[release.version];
-  setFwStatus(`Downloading and checking firmware v${release.version}…`);
+  setFwStatus(`Downloading and checking firmware v${release.version}…`, 'busy');
   const hexText = await downloadFirmware(release);
   const image = parseIntelHex(hexText);
   state.fwImages[release.version] = image;
@@ -577,7 +579,7 @@ async function prepareDevice(release) {
     } catch {
       /* best effort */
     }
-    setFwStatus('Restarting the Music Box into update mode…');
+    setFwStatus('Restarting the Music Box into update mode…', 'busy');
     await s.requestBootloaderCommand();
     markSerialDisconnected('Disconnected for the update — reconnect when it finishes.');
   } else {
@@ -589,7 +591,7 @@ async function prepareDevice(release) {
       flashTarget = null;
       return;
     }
-    setFwStatus('Trying another way to restart it…');
+    setFwStatus('Trying another way to restart it…', 'busy');
     try {
       await s.pokeBootloader();
     } catch {
@@ -661,7 +663,7 @@ async function flashNow(device, release) {
   bar.value = 0;
   try {
     const image = await ensureFirmwareImage(release);
-    setFwStatus(`Writing firmware v${release.version} — keep the cable connected.`, '');
+    setFwStatus(`Writing firmware v${release.version} — keep the cable connected.`, 'busy');
     const result = await flashImage(device, image, {
       onProgress: (done, total) => {
         bar.max = total;
@@ -696,6 +698,7 @@ async function flashNow(device, release) {
 async function reconnectAndRestore() {
   resetFlashSession();
   $('fw-reconnect').disabled = true;
+  setFwStatus('Reconnecting…', 'busy');
   const s = new MusicBoxSerial();
   try {
     await s.request();

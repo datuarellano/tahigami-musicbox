@@ -56,6 +56,17 @@
 .status.ok   { color: var(--color-leaf-dark); }
 .status.err  { color: var(--color-accent); }
 .status.warn { color: #b26b00; }
+.status.busy::before {
+  content: '';
+  display: inline-block;
+  width: 0.8em; height: 0.8em;
+  margin-right: 0.5em; vertical-align: -0.12em;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-fg);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .hint { color: var(--color-text-light); font-size: 0.88rem; margin: var(--spacing-xs) 0 0; }
 
@@ -121,6 +132,12 @@
   background: var(--color-leaf);
   box-shadow: 0 0 0 0 rgba(47, 157, 58, 0.5);
   animation: conn-pulse 2s ease-out infinite;
+}
+.conn-dot-connecting {
+  background: transparent;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-fg);
+  animation: spin 0.8s linear infinite;
 }
 @keyframes conn-pulse {
   0%   { box-shadow: 0 0 0 0 rgba(47, 157, 58, 0.5); }
