@@ -72,8 +72,8 @@ export function friendlyError(e) {
     return 'Could not reach the device. Check the USB cable and try again.';
   }
   if (/no reply from the device/i.test(msg)) {
-    return 'The Music Box didn\u2019t respond. Make sure nothing else (Soundlab, a serial ' +
-      'monitor) is using it, then try again.';
+    return 'The Music Box didn\u2019t respond. Make sure no other app or browser tab is ' +
+      'already connected to it, then try again.';
   }
 
   // Firmware "!ERR ..." tokens (src/debug_helper.cpp, src/music_box_config.cpp).
@@ -83,7 +83,7 @@ export function friendlyError(e) {
   if (/^unknown_cfg_key/.test(msg)) return 'This firmware doesn\u2019t recognize that setting.';
   if (/^unknown_command/.test(msg)) return 'This firmware doesn\u2019t support that action yet.';
   if (/^cfg_save_busy/.test(msg)) {
-    return 'The Music Box is mid-fade \u2014 wait a moment and try saving again.';
+    return 'The Music Box is in the middle of fading out \u2014 wait a moment and try saving again.';
   }
   if (/^cfg_save_too_soon/.test(msg)) {
     return 'You just saved \u2014 wait a couple of seconds and try again.';

@@ -120,7 +120,7 @@ export async function flashImage(device, image, { onProgress, log } = {}) {
     report.set(image.data.subarray(addr, addr + BLOCK), 64);
 
     if (block === 0) {
-      log?.('Erasing the chip — this takes a few seconds, do not unplug…');
+      log?.('Erasing the old firmware — this takes a few seconds, please don\u2019t unplug it…');
       await withRetry(() => sendReportTimed(device, 0, report, 20000), 5, 2000);
       await sleep(3000); // let the erase settle before the next write
     } else {

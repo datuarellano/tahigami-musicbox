@@ -50,11 +50,11 @@ function gate() {
   if (hasSerial && !hasHid) {
     banner.className = 'gate gate-warn';
     banner.innerHTML =
-      '<strong>Partial support.</strong> Status and Config work in this browser, but firmware ' +
-      'updates need Chrome or Edge on desktop.';
+      '<strong>Almost there.</strong> Status and Config work in this browser, but updating ' +
+      'firmware needs Chrome or Edge on a computer.';
     show(banner, true);
     $('fw-browser-note').textContent =
-      'Firmware updates need Chrome or Edge on desktop (this browser has no WebHID).';
+      'Updating firmware needs Chrome or Edge on a computer — this browser can\u2019t do it.';
     show($('fw-browser-note'), true);
     $('tab-firmware').classList.add('is-disabled');
     return true;
@@ -63,8 +63,8 @@ function gate() {
   banner.className = 'gate gate-stop';
   banner.innerHTML =
     '<strong>This browser can’t talk to the Music Box.</strong> ' +
-    'Open this page in <b>Chrome</b> or <b>Edge</b> on a desktop computer, then plug the ' +
-    'device in with a USB cable. ' +
+    'Please open this page in <b>Chrome</b> or <b>Edge</b> on a computer, then plug the ' +
+    'Music Box in with a USB cable. ' +
     '<button type="button" id="copy-link" class="link-btn">Copy this link</button>';
   show(banner, true);
   $('tab-status').classList.add('is-disabled');
@@ -209,7 +209,8 @@ async function connectSerial() {
     if (!info) {
       await s.close();
       setConnStatus(
-        'No response. Close any other app using the device (Soundlab, a serial monitor) and try again.',
+        'No response from the Music Box. Make sure no other app or browser tab is already ' +
+          'connected to it, then try again.',
         'err'
       );
       $('connect-btn').disabled = false;
@@ -248,7 +249,9 @@ async function loadConfigIntoForm() {
   const applyNowRow = $('apply-now-row');
   show(applyNowRow, cur !== active);
   $('active-note').textContent =
-    cur !== active ? `Currently running a ${active}-minute cycle until the next regeneration.` : '';
+    cur !== active
+      ? `Still on the old ${active}-minute cycle for now \u2014 the new setting starts next time it refreshes.`
+      : '';
 
   const stash = readStash()[state.device.sn || 'default'];
   const restoreRow = $('restore-row');
@@ -270,7 +273,7 @@ function syncFromInput() {
 }
 
 async function saveTimer() {
-  if (!state.serial) return markSerialDisconnected('Reconnect first.');
+  if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
   const minutes = Math.min(240, Math.max(1, Number($('regen-input').value) || 40));
   $('timer-save').disabled = true;
   setConnStatus('Saving…');
@@ -282,7 +285,7 @@ async function saveTimer() {
     setConnStatus(
       res.includes('unchanged')
         ? 'Already saved — nothing changed.'
-        : `Saved. New cycle length: ${minutes} minutes (applies at the next regeneration).`,
+        : `Saved. It'll play in ${minutes}-minute cycles starting next time it refreshes.`,
       'ok'
     );
   } catch (e) {
@@ -293,7 +296,7 @@ async function saveTimer() {
 }
 
 async function applyNow() {
-  if (!state.serial) return markSerialDisconnected('Reconnect first.');
+  if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
   $('apply-now').disabled = true;
   try {
     await state.serial.regenerateNow();
@@ -307,7 +310,7 @@ async function applyNow() {
 }
 
 async function restoreStashed(ev) {
-  if (!state.serial) return markSerialDisconnected('Reconnect first.');
+  if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
   const v = Number(ev.currentTarget.dataset.value);
   if (!v) return;
   $('regen-input').value = String(v);
@@ -428,7 +431,7 @@ function armConnectFlash() {
 
 async function ensureFirmwareImage(release) {
   if (state.fwImages[release.version]) return state.fwImages[release.version];
-  setFwStatus(`Downloading and verifying firmware v${release.version}…`);
+  setFwStatus(`Downloading and checking firmware v${release.version}…`);
   const hexText = await downloadFirmware(release);
   const image = parseIntelHex(hexText);
   state.fwImages[release.version] = image;
@@ -489,7 +492,7 @@ async function prepareDevice(release) {
     await s.requestBootloaderCommand();
     markSerialDisconnected('Disconnected for the update — reconnect when it finishes.');
   } else {
-    setFwStatus('Trying the fallback reboot…');
+    setFwStatus('Trying another way to restart it…');
     try {
       await s.pokeBootloader();
     } catch {
@@ -537,7 +540,7 @@ async function flashFirmware() {
     }
     if (!device) {
       setFwStatus(
-        'No bootloader device to select — the Music Box is not in update mode right now. ' +
+        'Nothing to select yet \u2014 the Music Box isn\u2019t in update mode right now. ' +
           'Click “Update firmware” and try again quickly.',
         'err'
       );
@@ -574,8 +577,8 @@ async function flashNow(device, release) {
   } catch (e) {
     setFwStatus(`Update failed: ${friendlyError(e)}`, 'err');
     fwLog(
-      'If the device is still in update mode you can retry. Otherwise reboot it into update ' +
-        'mode again and click “Flash firmware now”.'
+      'If it\u2019s still in update mode, you can just try again. Otherwise click \u201cUpdate ' +
+        'firmware\u201d to restart it into update mode, then try again.'
     );
     $('fw-flash').disabled = false;
     $('fw-start').disabled = false;

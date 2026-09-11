@@ -7,7 +7,7 @@
       "file": "firmware/d1-40-2.1.0.hex",
       "sha256": "292b196f3acd17050c33e1cf1d2e3b10c37d464135782678672f9f33643deb56",
       "date": "2026-09-11",
-      "notes": "In-browser updater and configurator.\nAdjustable regeneration timer (1-240 minutes, was fixed at 40).\nFirmware now reports its own version over serial."
+      "notes": "This updater and configurator app, right here in your browser.\nAn adjustable timer (1-240 minutes) for how long it plays before starting a new piece \u2014 was fixed at 40.\nThe Music Box can now tell this app which firmware it's running."
     },
     {
       "version": "2.0.0",
