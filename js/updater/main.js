@@ -494,10 +494,19 @@ let flashTarget = null; // the release currently being prepared/flashed
 // case the wire protocol can't already rule out is total silence (no reply
 // to !VERSION or !GET_STATUS at all) — anything that answers, even with an
 // !ERR, is running code from this repo, which has only ever targeted
-// Teensy 4.0. So this only gets asked for that one ambiguous case, once per
-// page visit, right before the one action that actually risks stranding a
-// sealed unit (the 134-baud reboot poke below).
-let compatConfirmedThisVisit = false;
+// Teensy 4.0. So this only gets asked for that one ambiguous case, right
+// before the one action that actually risks stranding a sealed unit (the
+// 134-baud reboot poke below) — and only once per browser, not once per
+// page load: an owner's browser only ever talks to their own one Music Box,
+// so once confirmed here it stays confirmed across refreshes/visits.
+const HW_OK_STORE = 'tahigami.updater.hwConfirmed';
+let compatConfirmedThisVisit = (() => {
+  try {
+    return localStorage.getItem(HW_OK_STORE) === '1';
+  } catch {
+    return false;
+  }
+})();
 
 async function confirmPreProtocolHardware() {
   if (compatConfirmedThisVisit) return true;
@@ -524,6 +533,11 @@ async function confirmPreProtocolHardware() {
     return false;
   }
   compatConfirmedThisVisit = true;
+  try {
+    localStorage.setItem(HW_OK_STORE, '1');
+  } catch {
+    /* storage unavailable — still holds for the rest of this page load */
+  }
   return true;
 }
 
