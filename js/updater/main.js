@@ -190,15 +190,18 @@ function renderConnectionState() {
 
 async function connectSerial() {
   resetFlashSession();
+  const refreshing = !!state.serial;
   let s;
   if (state.serial) {
-    // "Reconnect" while already connected: drop the current session and
+    // "Refresh" while already connected: drop the current session and
     // reopen the SAME physical port. Reusing the port object (rather than
     // requesting it again) avoids both a redundant chooser dialog and the
     // "port is already open" error a second open() on it would throw.
     stopHeartbeat();
     const port = state.serial.port;
     await state.serial.close().catch(() => {});
+    state.serial = null;
+    state.device = null;
     s = new MusicBoxSerial(port);
   } else {
     s = new MusicBoxSerial();
@@ -208,9 +211,14 @@ async function connectSerial() {
       return; // user dismissed the chooser
     }
   }
+  // The dot + label above the button are the one spinner for this — a
+  // second one on the status line below just repeated the same news in
+  // different, briefly-contradictory words ("Connected" next to
+  // "Connecting…").
   $('connect-btn').disabled = true;
   setConnDot('connecting');
-  setConnStatus('Connecting…', 'busy');
+  $('conn-text').textContent = refreshing ? 'Refreshing…' : 'Connecting…';
+  setConnStatus('');
   try {
     await s.open(115200);
     const info = await s.handshake();
@@ -240,7 +248,13 @@ async function connectSerial() {
     setConnStatus(`Connected to firmware ${info.fw || '?'}.`, 'ok');
   } catch (e) {
     await s.close().catch(() => {});
-    setConnDot('idle');
+    // The old session (if this was a refresh) was already closed above, so
+    // there's nothing left to call "connected" — reflect that everywhere
+    // (dot, label, device info, locked tabs) rather than leaving a stale
+    // "Connected" behind a fresh error.
+    state.serial = null;
+    state.device = null;
+    renderConnectionState();
     setConnStatus(`Could not connect: ${friendlyError(e)}`, 'err');
     $('connect-btn').disabled = false;
   }
