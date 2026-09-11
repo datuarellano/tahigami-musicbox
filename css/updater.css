@@ -201,6 +201,7 @@
   padding: var(--spacing-md);
   background: rgba(0, 0, 0, 0.4);
 }
+.modal-overlay[hidden] { display: none; }
 .modal {
   width: min(380px, 100%);
   background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 12px;
@@ -213,6 +214,7 @@
   padding: 0.5em 0.7em; font: inherit;
   border: 1px solid var(--color-border); border-radius: 6px;
 }
+.modal #modal-input[hidden] { display: none; }
 .modal-actions {
   display: flex; justify-content: flex-end; gap: var(--spacing-sm);
   margin-top: var(--spacing-md);
