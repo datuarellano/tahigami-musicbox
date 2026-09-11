@@ -212,15 +212,16 @@
                 <div id="led-card" class="card" hidden>
                     <h2>LED brightness</h2>
                     <p class="card-lede">
-                        Set how bright the breathing LED glows — turn it down for a dark room, or
-                        all the way off if you'd rather not see it.
+                        Set how bright the breathing LED glows — turn it down for a dark room, all
+                        the way off if you'd rather not see it, or past 100% for brighter than the
+                        original default.
                     </p>
 
                     <label class="field">
-                        <span class="field-label">Brightness (0–100%)</span>
+                        <span class="field-label">Brightness (0–200%, 100 = original default)</span>
                         <span class="field-row">
-                            <input type="range" id="led-range" min="0" max="100" step="1" value="100">
-                            <input type="number" id="led-input" min="0" max="100" step="1" value="100" inputmode="numeric">
+                            <input type="range" id="led-range" min="0" max="200" step="1" value="100">
+                            <input type="number" id="led-input" min="0" max="200" step="1" value="100" inputmode="numeric">
                         </span>
                     </label>
 

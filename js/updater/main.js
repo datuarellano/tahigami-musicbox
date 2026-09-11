@@ -396,7 +396,7 @@ async function saveVolCap() {
 
 async function saveLedBrightness() {
   if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
-  const pct = Math.min(100, Math.max(0, Number($('led-input').value) || 0));
+  const pct = Math.min(200, Math.max(0, Number($('led-input').value) || 0));
   $('led-save').disabled = true;
   setConnStatus('Saving…');
   try {
@@ -882,7 +882,7 @@ function wire() {
 
   wireRangeNumber('volcap-range', 'volcap-input', 0, 100);
   $('volcap-save')?.addEventListener('click', saveVolCap);
-  wireRangeNumber('led-range', 'led-input', 0, 100);
+  wireRangeNumber('led-range', 'led-input', 0, 200);
   $('led-save')?.addEventListener('click', saveLedBrightness);
 
   $('fw-start')?.addEventListener('click', () => prepareDevice(state.latest));
