@@ -270,7 +270,7 @@ async function loadConfigIntoForm() {
   const cur = Number(cfg.regen_min);
   const active = Number(cfg.regen_min_active);
   $('regen-input').value = String(cur);
-  $('regen-range').value = String(Math.min(120, Math.max(5, cur)));
+  $('regen-range').value = String(Math.min(240, Math.max(1, cur)));
   state.device.cfg = cfg;
 
   const applyNowRow = $('apply-now-row');
@@ -310,7 +310,7 @@ function syncFromRange() {
 }
 function syncFromInput() {
   const v = Math.min(240, Math.max(1, Number($('regen-input').value) || 40));
-  $('regen-range').value = String(Math.min(120, Math.max(5, v)));
+  $('regen-range').value = String(v);
 }
 
 async function saveTimer() {
