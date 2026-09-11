@@ -91,6 +91,14 @@ function stashConfig(sn, regenMin) {
 // ---------------------------------------------------------------------------
 // Timer tool
 // ---------------------------------------------------------------------------
+function markSerialDisconnected(msg, kind = 'warn') {
+  state.serial = null;
+  show($('timer-form'), false);
+  $('timer-connect').disabled = false;
+  $('timer-connect').textContent = 'Connect the Music Box';
+  if (msg) setTimerStatus(msg, kind);
+}
+
 function setTimerStatus(msg, kind = '') {
   const el = $('timer-status');
   el.textContent = msg;
@@ -183,6 +191,7 @@ function syncFromInput() {
 }
 
 async function saveTimer() {
+  if (!state.serial) return markSerialDisconnected('Reconnect first.');
   const minutes = Math.min(240, Math.max(1, Number($('regen-input').value) || 40));
   $('timer-save').disabled = true;
   setTimerStatus('Saving…');
@@ -205,6 +214,7 @@ async function saveTimer() {
 }
 
 async function applyNow() {
+  if (!state.serial) return markSerialDisconnected('Reconnect first.');
   $('apply-now').disabled = true;
   try {
     await state.serial.regenerateNow();
@@ -218,6 +228,7 @@ async function applyNow() {
 }
 
 async function restoreStashed(ev) {
+  if (!state.serial) return markSerialDisconnected('Reconnect first.');
   const v = Number(ev.currentTarget.dataset.value);
   if (!v) return;
   $('regen-input').value = String(v);
@@ -349,7 +360,7 @@ async function prepareDevice() {
     }
     setFwStatus('Restarting the Music Box into update mode…');
     await s.requestBootloaderCommand();
-    state.serial = null;
+    markSerialDisconnected('Disconnected for the update — reconnect when it finishes.');
   } else {
     setFwStatus('Trying the fallback reboot…');
     try {
@@ -357,7 +368,7 @@ async function prepareDevice() {
     } catch {
       /* ignore */
     }
-    state.serial = null;
+    markSerialDisconnected('Disconnected for the update — reconnect when it finishes.');
   }
 
   // Same-gesture grab for the first run (no HID permission yet). Chrome usually
