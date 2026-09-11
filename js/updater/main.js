@@ -270,127 +270,158 @@ function reflectFirmware() {
   show($('fw-uptodate'), !!upToDate);
 }
 
-// Step 1 — reboot the running board into HalfKay, then wait for the HID device.
-async function prepareDevice() {
-  $('fw-start').disabled = true;
-  setFwStatus('Putting the Music Box into update mode…');
-  try {
-    // Snapshot config first, so a wiped EEPROM can be restored afterwards.
-    if (state.serial && state.device && !state.device.legacy) {
-      try {
-        const cfg = await state.serial.getConfig();
-        stashConfig(state.device.sn, Number(cfg.regen_min));
-      } catch {
-        /* best effort */
-      }
-    }
+// Teensy 4's bootloader auto-returns to the app after a few seconds if nothing
+// programs it, so we cannot afford a "reboot, then wait, then click again"
+// flow. Strategy:
+//   - download + verify the firmware BEFORE touching the device
+//   - arm a navigator.hid "connect" listener that flashes the instant HalfKay
+//     appears (works with zero clicks once HID permission has been granted)
+//   - in the same click, also try requestDevice() so the very first run (no
+//     permission yet) can still grab it inside the click's activation window
 
-    if (state.serial) {
-      await state.serial.enterBootloader(state.device?.proto || 0);
-      state.serial = null;
-    } else {
-      // No serial session — ask for the port just to send the 134-baud poke.
-      const s = new MusicBoxSerial();
-      try {
-        await s.request();
-        await s.open(115200);
-        await s.enterBootloader(0);
-      } catch {
-        setFwStatus(
-          'Need the Music Box selected once to reboot it. Click “Update firmware” again and pick the device.',
-          'err'
-        );
-        $('fw-start').disabled = false;
-        return;
-      }
-    }
+const HALFKAY_IS = (d) =>
+  d.vendorId === HALFKAY_FILTER.vendorId && d.productId === HALFKAY_FILTER.productId;
 
-    show($('fw-flash-row'), true);
-    $('fw-flash').disabled = false;
-    setFwStatus('Rebooting into update mode…');
-    const dev = await waitForHalfKay(8000);
-    state.hid = dev; // may be null on a first run (no prior HID permission)
-    if (dev) {
-      setFwStatus('Update mode ready — click “Flash firmware now”.', 'ok');
-    } else {
-      setFwStatus(
-        'If the Music Box has gone quiet and its light is off, it is in update mode: click ' +
-          '“Flash firmware now” and pick it from the list. If it is still playing, the reboot ' +
-          'did not take — unplug it, plug it back in, and try again.',
-        'warn'
-      );
-    }
-  } catch (e) {
-    setFwStatus(`Couldn’t enter update mode: ${e.message}`, 'err');
-    $('fw-start').disabled = false;
-  }
-}
+let flashArmed = false;
+let flashInFlight = false;
 
-async function waitForHalfKay(timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  // Maybe we were already granted it on a previous visit.
-  const known = (await navigator.hid.getDevices()).find(
-    (d) => d.vendorId === HALFKAY_FILTER.vendorId && d.productId === HALFKAY_FILTER.productId
-  );
-  if (known) return known;
-
-  return new Promise((resolve) => {
-    const onConnect = (e) => {
-      if (
-        e.device.vendorId === HALFKAY_FILTER.vendorId &&
-        e.device.productId === HALFKAY_FILTER.productId
-      ) {
-        cleanup();
-        resolve(e.device);
-      }
-    };
-    const poll = setInterval(async () => {
-      const d = (await navigator.hid.getDevices()).find(
-        (x) => x.vendorId === HALFKAY_FILTER.vendorId && x.productId === HALFKAY_FILTER.productId
-      );
-      if (d) {
-        cleanup();
-        resolve(d);
-      } else if (Date.now() > deadline) {
-        cleanup();
-        resolve(null);
-      }
-    }, 500);
-    const cleanup = () => {
-      clearInterval(poll);
-      navigator.hid.removeEventListener('connect', onConnect);
-    };
-    navigator.hid.addEventListener('connect', onConnect);
+function armConnectFlash() {
+  if (flashArmed) return;
+  flashArmed = true;
+  navigator.hid.addEventListener('connect', (e) => {
+    if (HALFKAY_IS(e.device)) flashNow(e.device);
   });
 }
 
-// Step 2 — pick the HID device (if needed) and write the firmware.
-async function flashFirmware() {
-  $('fw-flash').disabled = true;
-  const bar = $('fw-progress');
-  show(bar, true);
-  bar.value = 0;
+async function ensureFirmwareImage() {
+  if (state.fwImage) return state.fwImage;
+  setFwStatus('Downloading and verifying firmware…');
+  const hexText = await downloadFirmware(state.latest);
+  state.fwImage = parseIntelHex(hexText);
+  return state.fwImage;
+}
+
+async function prepareDevice() {
+  $('fw-start').disabled = true;
+  show($('fw-flash-row'), true);
+  $('fw-flash').disabled = false;
 
   try {
-    let device = state.hid;
+    await ensureFirmwareImage();
+  } catch (e) {
+    setFwStatus(e.message, 'err');
+    $('fw-start').disabled = false;
+    return;
+  }
+  armConnectFlash();
+
+  // Get / reuse a serial session to trigger the reboot.
+  let s = state.serial;
+  let proto = state.device?.proto || 0;
+  if (!s) {
+    s = new MusicBoxSerial();
+    try {
+      await s.request();
+      await s.open(115200);
+      const info = await s.handshake();
+      proto = info && !info.legacy ? info.proto || 0 : 0;
+      if (info && !info.legacy) {
+        state.serial = s;
+        state.device = info;
+      }
+    } catch {
+      setFwStatus(
+        'Couldn’t open the Music Box. If it is already in update mode (silent, LED off), ' +
+          'click “Flash firmware now”.',
+        'warn'
+      );
+      $('fw-start').disabled = false;
+      return;
+    }
+  }
+
+  if (proto >= 2) {
+    try {
+      const cfg = await s.getConfig();
+      stashConfig(state.device?.sn, Number(cfg.regen_min));
+    } catch {
+      /* best effort */
+    }
+    setFwStatus('Restarting the Music Box into update mode…');
+    await s.requestBootloaderCommand();
+    state.serial = null;
+  } else {
+    setFwStatus('Trying the fallback reboot…');
+    try {
+      await s.pokeBootloader();
+    } catch {
+      /* ignore */
+    }
+    state.serial = null;
+  }
+
+  // Same-gesture grab for the first run (no HID permission yet). Chrome usually
+  // still honours the activation ~1-2s after the click.
+  try {
+    const picked = await navigator.hid.requestDevice({ filters: [HALFKAY_FILTER] });
+    if (picked[0]) {
+      await flashNow(picked[0]);
+      return;
+    }
+  } catch {
+    /* activation expired or user dismissed — fall through */
+  }
+
+  // Otherwise: if permission exists, the connect listener will fire; if not,
+  // the user must click "Flash firmware now" while HalfKay is up.
+  const granted = (await navigator.hid.getDevices()).some(HALFKAY_IS);
+  setFwStatus(
+    granted
+      ? 'Waiting for update mode… it should start on its own.'
+      : 'When the Music Box goes silent, click “Flash firmware now” right away and pick it ' +
+          'from the list. It only stays in update mode for a few seconds — if you miss it, ' +
+          'just click again.',
+    'warn'
+  );
+}
+
+async function flashFirmware() {
+  // Manual button: HalfKay should already be on the bus.
+  $('fw-flash').disabled = true;
+  try {
+    await ensureFirmwareImage();
+    armConnectFlash();
+    let device = (await navigator.hid.getDevices()).find(HALFKAY_IS);
     if (!device) {
       const picked = await navigator.hid.requestDevice({ filters: [HALFKAY_FILTER] });
       device = picked[0];
     }
     if (!device) {
       setFwStatus(
-        'No bootloader device to select. The Music Box is not in update mode — go back to ' +
-          'step one (“Update firmware”) and let it reboot first.',
+        'No bootloader device to select — the Music Box is not in update mode right now. ' +
+          'Click “Update firmware” (or run teensy_reboot) and try again quickly.',
         'err'
       );
       $('fw-flash').disabled = false;
       return;
     }
+    await flashNow(device);
+  } catch (e) {
+    setFwStatus(`Update failed: ${e.message}`, 'err');
+    $('fw-flash').disabled = false;
+  }
+}
 
-    setFwStatus('Downloading and verifying firmware…');
-    const hexText = await downloadFirmware(state.latest);
-    const image = parseIntelHex(hexText);
-
+async function flashNow(device) {
+  if (flashInFlight) return;
+  flashInFlight = true;
+  $('fw-flash').disabled = true;
+  $('fw-start').disabled = true;
+  const bar = $('fw-progress');
+  show(bar, true);
+  bar.value = 0;
+  try {
+    const image = await ensureFirmwareImage();
     setFwStatus('Writing firmware — keep the cable connected.', '');
     await flashImage(device, image, {
       onProgress: (done, total) => {
@@ -399,19 +430,18 @@ async function flashFirmware() {
       },
       log: fwLog,
     });
-
-    setFwStatus(
-      `Done. The Music Box is now running firmware ${state.latest.version}.`,
-      'ok'
-    );
+    setFwStatus(`Done. The Music Box is now running firmware ${state.latest.version}.`, 'ok');
     show($('fw-post'), true);
   } catch (e) {
     setFwStatus(`Update failed: ${e.message}`, 'err');
     fwLog(
-      'If the device is still in update mode you can retry. Otherwise unplug it, plug it ' +
-        'back in, and start again.'
+      'If the device is still in update mode you can retry. Otherwise reboot it into update ' +
+        'mode again and click “Flash firmware now”.'
     );
     $('fw-flash').disabled = false;
+    $('fw-start').disabled = false;
+  } finally {
+    flashInFlight = false;
   }
 }
 

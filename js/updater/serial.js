@@ -193,24 +193,26 @@ export class MusicBoxSerial {
     });
   }
 
-  // Get the board into HalfKay. Returns 'command' or 'poke'.
-  async enterBootloader(proto = 0) {
-    if (proto >= 2) {
-      try {
-        await this.command('!BOOTLOADER', {
-          expect: (l) => l.startsWith('!OK bootloader'),
-          timeoutMs: 1000,
-          retries: 0,
-        });
-        // firmware fades ~1.5s then reboots itself
-        await this.close();
-        return 'command';
-      } catch {
-        /* fall through to the poke */
-      }
+  // Ask the running firmware (proto >= 2) to jump to HalfKay. Fire-and-forget:
+  // the command still reboots the board even if its !OK reply is lost to a
+  // congested TX buffer, so a missed ack is NOT a reason to bail.
+  async requestBootloaderCommand() {
+    try {
+      await this.command('!BOOTLOADER', {
+        expect: (l) => l.startsWith('!OK bootloader'),
+        timeoutMs: 800,
+        retries: 0,
+      });
+    } catch {
+      /* ack lost — the firmware still reboots on its own timer */
     }
+    await this.close({ restoreVerbosity: false });
+  }
+
+  // Legacy fallback: a 134-baud open the Teensy core traps in its endpoint-0
+  // ISR. Known to be unreliable on some OS/browser combinations.
+  async pokeBootloader() {
     await this._poke134();
-    return 'poke';
   }
 
   async _poke134() {
@@ -220,9 +222,11 @@ export class MusicBoxSerial {
     await this.port.close();
   }
 
-  async close() {
+  async close({ restoreVerbosity = true } = {}) {
     try {
-      if (this.port?.writable && !this.port.writable.locked) await this.setQuiet(false);
+      if (restoreVerbosity && this.port?.writable && !this.port.writable.locked) {
+        await this.setQuiet(false);
+      }
     } catch {
       /* ignore */
     }
