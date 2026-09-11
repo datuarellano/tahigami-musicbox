@@ -36,13 +36,16 @@
   padding: 0.7em 1.4em;
   border: 1px solid var(--color-fg);
   cursor: pointer;
-  transition: opacity 0.15s ease, background-color 0.15s ease;
+  transition: opacity 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
 }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:active:not(:disabled) { transform: scale(0.96); }
 .btn-primary { background: var(--color-fg); color: var(--color-bg); }
 .btn-primary:hover:not(:disabled) { opacity: 0.85; }
+.btn-primary:active:not(:disabled) { opacity: 0.7; }
 .btn-ghost { background: transparent; color: var(--color-fg); }
 .btn-ghost:hover:not(:disabled) { background: rgba(0, 0, 0, 0.05); }
+.btn-ghost:active:not(:disabled) { background: rgba(0, 0, 0, 0.1); }
 .link-btn {
   background: none; border: none; padding: 0;
   color: inherit; text-decoration: underline; cursor: pointer; font: inherit;
@@ -257,6 +260,7 @@
   .modal-overlay { background: rgba(0, 0, 0, 0.6); }
   .modal { box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); }
   .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+  .btn-ghost:active:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
   .fw-log { background: rgba(255, 255, 255, 0.06); }
   .gate-warn { background: rgba(255, 170, 0, 0.12); }
   .gate-stop { background: rgba(255, 0, 102, 0.12); }
