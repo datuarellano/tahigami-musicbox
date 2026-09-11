@@ -131,12 +131,42 @@ export async function flashImage(device, image, { onProgress, log } = {}) {
     onProgress?.(done, total);
   }
 
+  // The reboot report often makes sendReport() itself reject (the board can
+  // drop off the bus mid-acknowledgement) — that alone is NOT proof it
+  // worked, so don't just assume success from a caught exception. Confirm it
+  // by waiting for the bootloader's own HID "disconnect" event instead, and
+  // retry a couple of times if it doesn't show up.
   const reboot = new Uint8Array(REPORT);
   reboot[0] = reboot[1] = reboot[2] = 0xff;
-  try {
-    await sendReportTimed(device, 0, reboot, 2000);
-  } catch {
-    // the board often drops off the bus before this resolves — that's fine
+  let rebooted = false;
+  for (let attempt = 0; attempt < 3 && !rebooted; attempt++) {
+    const left = waitForHidDisconnect(device, 1500);
+    try {
+      await sendReportTimed(device, 0, reboot, 2000);
+    } catch {
+      /* often expected — the disconnect check below is the real signal */
+    }
+    rebooted = await left;
   }
-  log?.('Firmware written. The Music Box is restarting.');
+  log?.(
+    rebooted
+      ? 'Firmware written. The Music Box is restarting.'
+      : 'Firmware written, but the Music Box didn’t restart on its own.'
+  );
+  return { rebooted };
+}
+
+function waitForHidDisconnect(device, timeoutMs) {
+  return new Promise((resolve) => {
+    const onDisconnect = (e) => {
+      if (e.device === device) finish(true);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    function finish(result) {
+      clearTimeout(timer);
+      navigator.hid.removeEventListener('disconnect', onDisconnect);
+      resolve(result);
+    }
+    navigator.hid.addEventListener('disconnect', onDisconnect);
+  });
 }

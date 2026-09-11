@@ -645,14 +645,22 @@ async function flashNow(device, release) {
   try {
     const image = await ensureFirmwareImage(release);
     setFwStatus(`Writing firmware v${release.version} — keep the cable connected.`, '');
-    await flashImage(device, image, {
+    const result = await flashImage(device, image, {
       onProgress: (done, total) => {
         bar.max = total;
         bar.value = done;
       },
       log: fwLog,
     });
-    setFwStatus(`Done. The Music Box is now running firmware ${release.version}.`, 'ok');
+    if (result?.rebooted === false) {
+      setFwStatus(
+        `Firmware written, but the Music Box didn’t restart on its own. Unplug the USB cable ` +
+          `for a few seconds, then plug it back in — it’ll come up running firmware ${release.version}.`,
+        'warn'
+      );
+    } else {
+      setFwStatus(`Done. The Music Box is now running firmware ${release.version}.`, 'ok');
+    }
     show($('fw-post'), true);
   } catch (e) {
     setFwStatus(`Update failed: ${friendlyError(e)}`, 'err');
