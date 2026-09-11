@@ -140,8 +140,13 @@ function stopHeartbeat() {
 }
 
 function markSerialDisconnected(msg, kind = 'warn') {
+  const s = state.serial;
   state.serial = null;
   stopHeartbeat();
+  // Actually release the port — otherwise the browser still considers it
+  // open, and the next "Connect" click fails with "already open" even
+  // though the app itself has moved on.
+  if (s) s.close().catch(() => {});
   if (msg) setConnStatus(msg, kind);
   renderConnectionState();
 }
@@ -210,6 +215,18 @@ async function connectSerial() {
     state.serial = s;
     state.device = info;
     renderConnectionState();
+
+    if (info.legacy && info.reason === 'silent') {
+      // This old a firmware never answers anything, including our "are you
+      // still there?" check — polling it would just misreport a good
+      // connection as lost every few seconds.
+      setConnStatus(
+        'Connected. This firmware is too old to check in on, so update it to unlock live status and the Config tab.',
+        'warn'
+      );
+      return;
+    }
+
     startHeartbeat();
 
     if (info.legacy) {
