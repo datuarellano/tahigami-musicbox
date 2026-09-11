@@ -178,13 +178,21 @@
 .whats-new { position: relative; margin: var(--spacing-sm) 0; }
 .popover {
   position: absolute; top: calc(100% + 0.4em); left: 0; z-index: 5;
-  width: min(320px, 80vw);
+  width: min(420px, 90vw);
   background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 10px;
   padding: var(--spacing-sm) var(--spacing-md);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 .popover h3 { margin: 0 0 0.5em; font-size: 1rem; }
-.popover ul { margin: 0; padding-left: 1.2em; font-size: 0.9rem; line-height: 1.6; }
+.popover ul {
+  margin: 0; padding-left: 1.2em; font-size: 0.9rem; line-height: 1.6;
+  max-height: min(60vh, 420px); overflow-y: auto;
+}
+.popover ul li.whats-new-heading {
+  list-style: none; margin: 0.9em 0 0.2em -1.2em;
+  font-weight: 600; color: var(--color-fg);
+}
+.popover ul li.whats-new-heading:first-child { margin-top: 0; }
 .popover-close {
   position: absolute; top: 0.4em; right: 0.6em;
   background: none; border: none; font-size: 1.2rem; line-height: 1;

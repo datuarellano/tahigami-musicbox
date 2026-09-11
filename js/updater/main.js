@@ -801,9 +801,19 @@ function wire() {
   $('whats-new-btn')?.addEventListener('click', () => {
     const list = $('whats-new-list');
     list.innerHTML = '';
-    for (const line of (state.latest?.notes || '').split('\n').filter(Boolean)) {
+    // A "## " line groups the bullets under it (for a changelog with enough
+    // going on to need sections); a plain line renders as a normal bullet,
+    // with an optional leading "- " stripped for authors used to writing it.
+    for (const raw of (state.latest?.notes || '').split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
       const li = document.createElement('li');
-      li.textContent = line;
+      if (line.startsWith('## ')) {
+        li.textContent = line.slice(3);
+        li.className = 'whats-new-heading';
+      } else {
+        li.textContent = line.replace(/^-\s*/, '');
+      }
       list.appendChild(li);
     }
     show($('whats-new-popover'), true);
