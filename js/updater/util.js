@@ -58,3 +58,37 @@ export function compareVersions(a, b) {
   }
   return 0;
 }
+
+// Turn a raw browser/DOM exception or a firmware "!ERR <token>..." string into
+// something an owner (not a developer) can act on. Anything we already wrote
+// ourselves in plain English (manifest.js, halfkay.js) passes through as-is.
+export function friendlyError(e) {
+  const msg = String(e?.message ?? e ?? '').trim();
+
+  if (/already open/i.test(msg)) return 'Already connected.';
+  if (/no port selected|no device selected/i.test(msg)) return 'No device was selected.';
+  if (/user gesture/i.test(msg)) return 'Click the button again to select the device.';
+  if (/device has been lost|device not found|failed to open/i.test(msg)) {
+    return 'Could not reach the device. Check the USB cable and try again.';
+  }
+  if (/no reply from the device/i.test(msg)) {
+    return 'The Music Box didn\u2019t respond. Make sure nothing else (Soundlab, a serial ' +
+      'monitor) is using it, then try again.';
+  }
+
+  // Firmware "!ERR ..." tokens (src/debug_helper.cpp, src/music_box_config.cpp).
+  const range = msg.match(/^out_of_range \S+ \S+ valid=(\d+)-(\d+)/);
+  if (range) return `Enter a value between ${range[1]} and ${range[2]}.`;
+  if (/^not_a_number/.test(msg)) return 'Enter a whole number.';
+  if (/^unknown_cfg_key/.test(msg)) return 'This firmware doesn\u2019t recognize that setting.';
+  if (/^unknown_command/.test(msg)) return 'This firmware doesn\u2019t support that action yet.';
+  if (/^cfg_save_busy/.test(msg)) {
+    return 'The Music Box is mid-fade \u2014 wait a moment and try saving again.';
+  }
+  if (/^cfg_save_too_soon/.test(msg)) {
+    return 'You just saved \u2014 wait a couple of seconds and try again.';
+  }
+  if (/^cfg_save_failed/.test(msg)) return 'Couldn\u2019t confirm the save. Try again.';
+
+  return msg || 'Something went wrong. Please try again.';
+}

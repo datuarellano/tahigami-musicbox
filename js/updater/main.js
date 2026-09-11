@@ -7,7 +7,7 @@
 import { MusicBoxSerial } from './serial.js';
 import { HALFKAY_FILTER, parseIntelHex, flashImage } from './halfkay.js';
 import { fetchManifest, pickLatest, downloadFirmware } from './manifest.js';
-import { compareVersions } from './util.js';
+import { compareVersions, friendlyError } from './util.js';
 
 const $ = (id) => document.getElementById(id);
 const show = (el, on = true) => el && el.toggleAttribute('hidden', !on);
@@ -183,11 +183,23 @@ function renderConnectionState() {
 }
 
 async function connectSerial() {
-  const s = new MusicBoxSerial();
-  try {
-    await s.request();
-  } catch {
-    return; // user dismissed the chooser
+  let s;
+  if (state.serial) {
+    // "Reconnect" while already connected: drop the current session and
+    // reopen the SAME physical port. Reusing the port object (rather than
+    // requesting it again) avoids both a redundant chooser dialog and the
+    // "port is already open" error a second open() on it would throw.
+    stopHeartbeat();
+    const port = state.serial.port;
+    await state.serial.close().catch(() => {});
+    s = new MusicBoxSerial(port);
+  } else {
+    s = new MusicBoxSerial();
+    try {
+      await s.request();
+    } catch {
+      return; // user dismissed the chooser
+    }
   }
   $('connect-btn').disabled = true;
   setConnStatus('Connecting…');
@@ -217,7 +229,7 @@ async function connectSerial() {
     setConnStatus(`Connected to firmware ${info.fw || '?'}.`, 'ok');
   } catch (e) {
     await s.close().catch(() => {});
-    setConnStatus(`Could not connect: ${e.message}`, 'err');
+    setConnStatus(`Could not connect: ${friendlyError(e)}`, 'err');
     $('connect-btn').disabled = false;
   }
 }
@@ -274,7 +286,7 @@ async function saveTimer() {
       'ok'
     );
   } catch (e) {
-    setConnStatus(`Save failed: ${e.message}`, 'err');
+    setConnStatus(`Save failed: ${friendlyError(e)}`, 'err');
   } finally {
     $('timer-save').disabled = false;
   }
@@ -288,7 +300,7 @@ async function applyNow() {
     await loadConfigIntoForm();
     setConnStatus('Applied — the Music Box is starting a fresh cycle now.', 'ok');
   } catch (e) {
-    setConnStatus(`Could not apply now: ${e.message}`, 'err');
+    setConnStatus(`Could not apply now: ${friendlyError(e)}`, 'err');
   } finally {
     $('apply-now').disabled = false;
   }
@@ -328,7 +340,7 @@ async function loadManifest() {
     renderConnectionState();
   } catch (e) {
     $('fw-latest-version').textContent = '?';
-    $('fw-hint').textContent = e.message;
+    $('fw-hint').textContent = friendlyError(e);
   }
 }
 
@@ -433,7 +445,7 @@ async function prepareDevice(release) {
   try {
     await ensureFirmwareImage(release);
   } catch (e) {
-    setFwStatus(e.message, 'err');
+    setFwStatus(friendlyError(e), 'err');
     $('fw-start').disabled = false;
     return;
   }
@@ -534,7 +546,7 @@ async function flashFirmware() {
     }
     await flashNow(device, release);
   } catch (e) {
-    setFwStatus(`Update failed: ${e.message}`, 'err');
+    setFwStatus(`Update failed: ${friendlyError(e)}`, 'err');
     $('fw-flash').disabled = false;
   }
 }
@@ -560,7 +572,7 @@ async function flashNow(device, release) {
     setFwStatus(`Done. The Music Box is now running firmware ${release.version}.`, 'ok');
     show($('fw-post'), true);
   } catch (e) {
-    setFwStatus(`Update failed: ${e.message}`, 'err');
+    setFwStatus(`Update failed: ${friendlyError(e)}`, 'err');
     fwLog(
       'If the device is still in update mode you can retry. Otherwise reboot it into update ' +
         'mode again and click “Flash firmware now”.'
@@ -574,6 +586,7 @@ async function flashNow(device, release) {
 }
 
 async function reconnectAndRestore() {
+  $('fw-reconnect').disabled = true;
   const s = new MusicBoxSerial();
   try {
     await s.request();
@@ -581,6 +594,11 @@ async function reconnectAndRestore() {
     const info = await s.handshake();
     if (!info) {
       await s.close();
+      setFwStatus(
+        'No response from the Music Box. Make sure it finished restarting, then try again.',
+        'err'
+      );
+      $('fw-reconnect').disabled = false;
       return;
     }
     state.serial = s;
@@ -589,6 +607,7 @@ async function reconnectAndRestore() {
 
     if (info.legacy) {
       $('fw-post').hidden = true;
+      setFwStatus(`Reconnected — now running older firmware.`, 'warn');
       return;
     }
 
@@ -600,9 +619,11 @@ async function reconnectAndRestore() {
     }
     await loadConfigIntoForm();
     $('fw-post').hidden = true;
-    setConnStatus(`Reconnected. Timer restored to ${stash?.regen_min ?? '(default)'} minutes.`, 'ok');
-  } catch {
+    setFwStatus(`Reconnected — timer restored to ${stash?.regen_min ?? '(default)'} minutes.`, 'ok');
+  } catch (e) {
     await s.close().catch(() => {});
+    setFwStatus(`Couldn’t reconnect: ${friendlyError(e)}`, 'err');
+    $('fw-reconnect').disabled = false;
   }
 }
 
