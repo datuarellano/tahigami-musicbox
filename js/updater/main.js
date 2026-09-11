@@ -490,12 +490,13 @@ let flashInFlight = false;
 let flashTarget = null; // the release currently being prepared/flashed
 
 // Some units in the field (device #1-11, beta era, pre-July-2023) run a
-// different circuit board that this firmware cannot run on at all. The wire
-// protocol can't tell them apart from a compatible-but-outdated unit — both
-// just fail to answer !VERSION — so we ask the owner once per page visit,
-// right before the one action that actually risks stranding a sealed unit
-// (the 134-baud reboot poke below). Units already speaking the new protocol
-// are provably compatible already and skip this.
+// different circuit board that this firmware cannot run on at all. The only
+// case the wire protocol can't already rule out is total silence (no reply
+// to !VERSION or !GET_STATUS at all) — anything that answers, even with an
+// !ERR, is running code from this repo, which has only ever targeted
+// Teensy 4.0. So this only gets asked for that one ambiguous case, once per
+// page visit, right before the one action that actually risks stranding a
+// sealed unit (the 134-baud reboot poke below).
 let compatConfirmedThisVisit = false;
 
 async function confirmPreProtocolHardware() {
@@ -562,6 +563,7 @@ async function prepareDevice(release) {
   // Get / reuse a serial session to trigger the reboot.
   let s = state.serial;
   let proto = state.device?.proto || 0;
+  let reason = state.device?.reason;
   if (!s) {
     s = new MusicBoxSerial();
     try {
@@ -569,6 +571,7 @@ async function prepareDevice(release) {
       await s.open(115200);
       const info = await s.handshake();
       proto = info && !info.legacy ? info.proto || 0 : 0;
+      reason = info?.reason;
       if (info && !info.legacy) {
         state.serial = s;
         state.device = info;
@@ -597,7 +600,12 @@ async function prepareDevice(release) {
     await s.requestBootloaderCommand();
     markSerialDisconnected('Disconnected for the update — reconnect when it finishes.');
   } else {
-    if (!(await confirmPreProtocolHardware())) {
+    // Only the totally-silent case is hardware-ambiguous. Any device that
+    // answers !ERR/!STATUS at all is running code from this repo, which has
+    // only ever targeted Teensy 4.0 — that alone already proves the board,
+    // no need to ask again (e.g. rolling a v2.0.0 unit back to v1.0.0).
+    const hardwareUnknown = reason === 'silent' || !reason;
+    if (hardwareUnknown && !(await confirmPreProtocolHardware())) {
       setFwStatus('Update cancelled — nothing was changed.', 'warn');
       $('fw-start').disabled = false;
       $('fw-flash').disabled = true;
