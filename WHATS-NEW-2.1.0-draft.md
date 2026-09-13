@@ -13,9 +13,18 @@ the final wording goes into `public/firmware/manifest.json`'s `2.1.0` release
 ## Already in the current 2.1.0 notes (for reference, not re-deriving these)
 
 - This updater and configurator app, right here in your browser.
-- An adjustable timer (1–240 minutes) for how long it plays before starting a
   new piece — was fixed at 40.
 - The Music Box can now tell this app which firmware it's running.
+
+## Owner customizations
+
+- An adjustable timer (1–240 minutes) for how long it plays before starting a new piece.
+- Set how loud the volume knob is allowed to reach.
+- Adjust how bright the breathing LED glows, even brighter than the
+  original default.
+- Set the range of tempos the Music Box picks from on its own.
+- One button to put the timer, volume cap, LED brightness, and tempo range
+  all back to how it shipped.
 
 ## Timing & rhythm
 
@@ -37,12 +46,19 @@ the final wording goes into `public/firmware/manifest.json`'s `2.1.0` release
 
 ## Blossom lead voice
 
+- New Blossom patch: a plucky, string-like "guitar" timbre using
+  Karplus-Strong synthesis, with its own dedicated reverb send for a more
+  spacious pluck.
 - New Blossom patch: "Crazy Diamond," an analog-style lead with a proper
   filter sweep, pitch glide, vibrato, and legato. Inspired by Pink Floyd.
 - Added a limiter that watches the Blossom voice so louder passages don't
   clip or distort.
 - Leaf Blossom gained a proper bird-chirp voice — 12 different call shapes
-  with natural-sounding variation.
+  with natural-sounding variation. Toned down one call that came out too
+  loud and a little startling.
+- Blossom's melody-movement patterns now include four new "walk" styles it
+  can wander through, on top of the existing ones, for more variety from
+  one piece to the next.
 
 ## Regeneration button
 
@@ -55,6 +71,9 @@ the final wording goes into `public/firmware/manifest.json`'s `2.1.0` release
 - Added a sub-oscillator so thin-sounding bass patches have real low end.
 - Softened overly bright bass tones on the pattern grid and fixed a couple
   of specific patterns that weren't playing correctly in triple meter.
+- Added back an original drone mode: the bass can lock onto a single steady low note (the
+  key's tonic) instead of following the chord changes, for a more static,
+  droney feel.
 
 ## Percussion (Mountain Blossom)
 
@@ -67,8 +86,34 @@ the final wording goes into `public/firmware/manifest.json`'s `2.1.0` release
 - Added chorus/flanger movement to the harmony, strings, and Blossom voices
   for more depth and shimmer.
 
+## Scales
+
+- Added two new scales: Hamsadhwani, a bright Indian pentatonic raga, and
+  Ryukyu, an Okinawan scale.
+- Removed the Prometheus scale for now — paired with the new chord engine
+  it came out sounding more cinematic than calming, which isn't the mood
+  this box is going for. May return later as an optional mode.
+
+## MIDI
+
+- MIDI output over USB got a repair pass — several bugs fixed, including
+  notes getting stuck on after a regeneration and repeated notes at the
+  same pitch not retriggering.
+- The ambient pad voice now sends its own MIDI notes on their own channel,
+  so it shows up separately in a DAW.
+- The Music Box can sync its tempo to an incoming MIDI clock from a DAW
+  (for gear, like Logic Pro, that sends clock but won't follow one), or
+  send its own clock out to other gear. If the connection drops it keeps
+  playing on its own rather than going silent.
+
 ## Reliability
 
 - Fixed an audio glitch that could happen while connected over USB.
 - Fixed a bug where manually starting a new piece could silently do nothing
   after certain settings had been touched.
+- Fixed crackling/zipper noise during volume fades, most noticeable over
+  USB.
+- Fixed the button-triggered regeneration fade jumping straight to full
+  volume instead of fading in smoothly.
+- Fixed a bug where telling Blossom to rest didn't always actually make it
+  go quiet.
