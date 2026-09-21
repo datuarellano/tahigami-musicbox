@@ -29,6 +29,7 @@ const BLINK_CYCLE_MS = 150; // chaos-mode alpha strobe period
 const PUNCTURE_RADIUS = 24.053; // ring base radius, SVG units
 const PUNCTURE_POP_MS = 300; // ring pop duration
 const PUNCTURE_POP_SCALE = 1.4; // ring pop peak scale
+const TRAIL_DEFAULTS = { length: 6, fadeMs: 1600, width: 6 }; // opt-in - see options.trail
 const FIT_PUNCTURES_PADDING_FACTOR = 0.2; // 'punctures' fit: pad the puncture
 // bbox by this fraction of its own size on each side, to leave room for the
 // petals/threads that extend beyond the puncture points themselves
@@ -58,6 +59,7 @@ const DEFAULT_THEME = {
   ringHoleColor: [0, 0, 0], // the pop-ring's center disc - set this to your
   // page background color, not literal black, on anything but a dark page
   labelColor: [255, 255, 255], // debug puncture-index labels
+  trailColor: null, // walk-trail line color; null = the blossom's own ring color
   // Per-blossom accent (puncture fill + ring stroke). Keyed like
   // BLOSSOM_CONFIG; omit a key to keep that blossom's built-in color -
   // only given keys are overridden.
@@ -295,6 +297,10 @@ export class BlossomViz {
    *   (matches the original full-bleed Visualizer behaviour).
    * @param {boolean} [options.debug=false] - draw puncture index labels.
    * @param {number} [options.jitter=1.0] - px of shimmer jitter, normal mode.
+   * @param {boolean|object} [options.trail=false] - leave a fading ripple ring on
+   *   each of the last few punctures played. `true` uses the defaults; or pass
+   *   {length, fadeMs, width} (max rings kept, ms for one to fade out, ring
+   *   stroke width in SVG units).
    * @param {object} [options.theme] - partial override of DEFAULT_THEME
    *   (line/shape colors + widths) - see README "Theming". Merged over the
    *   defaults, so pass only what you want to change.
@@ -307,6 +313,8 @@ export class BlossomViz {
     this.debug = options.debug ?? false;
     this.jitter = options.jitter ?? JITTER_DEFAULT;
     this.theme = mergeTheme(DEFAULT_THEME, options.theme);
+    this.trail = options.trail ? { ...TRAIL_DEFAULTS, ...(options.trail === true ? {} : options.trail) } : null;
+    this._trailPoints = []; // [{id, t}] oldest first - punctures the walk just visited
 
     this._blossoms = {}; // key -> {drawables} cache, populated by _loadBlossom
     this._loading = {}; // key -> in-flight fetch/parse promise
@@ -378,6 +386,7 @@ export class BlossomViz {
     }
     if (this._destroyed) return;
     this._currentKey = key;
+    this._trailPoints = []; // ids belong to the previous blossom's graph
     this._fadeStart = performance.now();
   }
 
@@ -389,6 +398,11 @@ export class BlossomViz {
   trigger(punctureIndex) {
     if (punctureIndex == null || punctureIndex < 0) return;
     this._activePop = new PunctureAnimation(punctureIndex);
+    if (this.trail) {
+      const pts = this._trailPoints;
+      pts.push({ id: punctureIndex, t: performance.now() });
+      if (pts.length > this.trail.length + 1) pts.splice(0, pts.length - (this.trail.length + 1));
+    }
   }
 
   /**
@@ -431,6 +445,7 @@ export class BlossomViz {
   clear() {
     this._currentKey = "";
     this._activePop = null;
+    this._trailPoints = [];
   }
 
   _fitPunctures(key) {
@@ -516,6 +531,42 @@ export class BlossomViz {
     ctx.restore();
   }
 
+  // Afterglow: each recently played puncture keeps a soft ring that widens and
+  // fades as it ages, like a ripple. Rings sit on the punctures themselves, so
+  // jumps between distant punctures leave no lines cutting across the artwork
+  // and there is nothing colored to fight the black threads. The newest point
+  // is the live pop ring (_drawPunctureRing), so it is skipped here.
+  _drawTrail(key, now, scale, offsetX, offsetY, alpha) {
+    const pts = this._trailPoints;
+    if (!this.trail || pts.length < 2) return;
+    const { fadeMs, width } = this.trail;
+    while (pts.length && now - pts[0].t > fadeMs) pts.shift();
+    if (pts.length < 2) return;
+
+    const config = BLOSSOM_CONFIG[key];
+    const theme = this.theme;
+    const color = theme.trailColor ?? theme.blossomColors[key]?.ringColor ?? config.ringColor;
+    const positions = puncturePositions[key] || [];
+
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.lineWidth = width * scale;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const m = positions.find((p) => p[0] === pts[i].id);
+      if (!m) continue;
+      const age = (now - pts[i].t) / fadeMs; // 0 = just played, 1 = gone
+      // Start just outside the puncture's black outline (~30 units) and
+      // expand from there - a ring sitting on the outline itself disappears,
+      // since the accent colors are dark.
+      const radius = PUNCTURE_RADIUS * (1.9 + 1.2 * age) * scale;
+      ctx.strokeStyle = `rgba(${color.join(",")},${alpha * (1 - age) * 0.85})`;
+      ctx.beginPath();
+      ctx.arc(offsetX + m[1] * scale, offsetY + m[2] * scale, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   _drawPunctureRing(key, scale, offsetX, offsetY, alpha) {
     if (!this._activePop) return;
     const ctx = this.ctx;
@@ -575,6 +626,7 @@ export class BlossomViz {
       if (this._activePop) this._activePop.update(now);
 
       this._renderBlossom(key, alpha, scale, offsetX, offsetY);
+      this._drawTrail(key, now, scale, offsetX, offsetY, alpha);
       this._drawPunctureRing(key, scale, offsetX, offsetY, alpha);
       if (this.debug) this._drawPunctureLabels(key, scale, offsetX, offsetY, alpha);
     }
