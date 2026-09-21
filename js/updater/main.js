@@ -325,6 +325,10 @@ function renderConnectionState() {
 
   reflectFirmware();
 
+  // "Reconnect to check the new version" only makes sense while disconnected;
+  // any path that ends up connected (Status tab, reconnect, auto) clears it.
+  if (connected) show($('fw-post'), false);
+
   const locked = !connected || legacy;
   show($('config-locked'), locked);
   show($('config-unlocked'), !locked);
@@ -757,10 +761,10 @@ function reflectFirmware() {
   const legacy = connected && state.device.legacy;
   const cur = connected && !legacy ? state.device.fw : null;
 
-  $('fw-installed-version').textContent = legacy ? 'older' : cur || '—';
+  $('fw-installed-version').textContent = legacy ? 'Unknown' : cur || '—';
   $('fw-hint').textContent = connected
     ? legacy
-      ? 'This unit predates the version protocol, so its exact firmware is unknown.'
+      ? 'Your Music Box is running an earlier version that can\u2019t report which one. Updating brings it up to date and unlocks the Config tab.'
       : ''
     : 'Connect in the Status tab to see your installed version.';
 
@@ -864,12 +868,19 @@ async function ensureFirmwareImage(release) {
   return image;
 }
 
+function revealManualFlash() {
+  show($('fw-flash-row'), true);
+  $('fw-flash').disabled = false;
+}
+
 async function prepareDevice(release) {
   release = release || state.latest;
   flashTarget = release;
   $('fw-start').disabled = true;
-  show($('fw-flash-row'), true);
-  $('fw-flash').disabled = false;
+  // The manual "Flash firmware now" row stays hidden unless the automatic
+  // path needs help — see revealManualFlash().
+  show($('fw-flash-row'), false);
+  $('fw-flash').disabled = true;
 
   try {
     await ensureFirmwareImage(release);
@@ -886,8 +897,26 @@ async function prepareDevice(release) {
   let reason = state.device?.reason;
   if (!s) {
     s = new MusicBoxSerial();
+    setFwStatus(
+      'Choose your Music Box in the window that just opened (look near the top of your browser).',
+      'busy'
+    );
     try {
       await s.request();
+    } catch {
+      // Dismissed, or the list was empty — either way there's nothing to
+      // restart, so hand over to the manual route instead of a dead end.
+      setFwStatus(
+        'No Music Box was chosen. Make sure it\u2019s plugged in with a data cable and try again. ' +
+          'If it\u2019s already in update mode (silent, LED off), click \u201cFlash firmware now\u201d.',
+        'warn'
+      );
+      $('fw-start').disabled = false;
+      revealManualFlash();
+      return;
+    }
+    try {
+      setFwStatus('Connecting to the Music Box…', 'busy');
       await s.open(115200);
       const info = await s.handshake();
       proto = info && !info.legacy ? info.proto || 0 : 0;
@@ -905,6 +934,7 @@ async function prepareDevice(release) {
         'warn'
       );
       $('fw-start').disabled = false;
+      revealManualFlash();
       return;
     }
   }
@@ -957,14 +987,20 @@ async function prepareDevice(release) {
   // Otherwise: if permission exists, the connect listener will fire; if not,
   // the user must click "Flash firmware now" while HalfKay is up.
   const granted = (await navigator.hid.getDevices()).some(HALFKAY_IS);
-  setFwStatus(
-    granted
-      ? 'Waiting for update mode… it should start on its own.'
-      : 'When the Music Box goes silent, click “Flash firmware now” right away and pick it ' +
-          'from the list. It only stays in update mode for a few seconds — if you miss it, ' +
-          'just click again.',
-    'warn'
-  );
+  if (granted) {
+    setFwStatus('Waiting for update mode… it should start on its own.', 'warn');
+    // Automatic start is expected; only offer the manual button if it doesn't.
+    setTimeout(() => {
+      if (flashTarget && !flashInFlight) revealManualFlash();
+    }, 8000);
+  } else {
+    setFwStatus(
+      'When the Music Box goes silent, click “Flash firmware now” below and pick “Unknown Device”. ' +
+        'It only stays in update mode for a few seconds — if you miss it, just click again.',
+      'warn'
+    );
+    revealManualFlash();
+  }
 }
 
 async function flashFirmware() {
@@ -1029,7 +1065,7 @@ async function flashNow(device, release) {
       'If it\u2019s still in update mode, you can just try again. Otherwise click \u201cUpdate ' +
         'firmware\u201d to restart it into update mode, then try again.'
     );
-    $('fw-flash').disabled = false;
+    revealManualFlash();
     $('fw-start').disabled = false;
   } finally {
     flashInFlight = false;
