@@ -1,8 +1,11 @@
 // Tahigami Music Box D1-40 - Interactive functionality
+import { initBlossomDemo } from './blossom-demo.js';
 console.log('Tahigami Music Box D1-40 - JavaScript loaded');
 
 // Tab switching functionality
 document.addEventListener('DOMContentLoaded', () => {
+    initBlossomDemo();
+
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabPanes = document.querySelectorAll('.tab-pane');
 
