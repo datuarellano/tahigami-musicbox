@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/tahigami-musicbox/assets/main-BvnHmKxA.js"></script>
-  <link rel="modulepreload" crossorigin href="/tahigami-musicbox/assets/styles-DuPNB05e.js">
-  <link rel="stylesheet" crossorigin href="/tahigami-musicbox/assets/styles-BPC_31gk.css">
+  <script type="module" crossorigin src="/tahigami-musicbox/assets/main-CZGdZleS.js"></script>
+  <link rel="modulepreload" crossorigin href="/tahigami-musicbox/assets/blossom-viz-0ILmzg9t.js">
+  <link rel="stylesheet" crossorigin href="/tahigami-musicbox/assets/blossom-viz-DoSNhseB.css">
 </head>
 <body>
     <!-- Navigation -->
@@ -185,14 +185,14 @@
         <div class="container">
             <div class="tabs">
                 <div class="tabs-nav">
-                    <button class="tab-button active" data-tab="origin">Origin</button>
-                    <button class="tab-button" data-tab="howit">How it Works</button>
+                    <button class="tab-button" data-tab="origin">Origin</button>
+                    <button class="tab-button active" data-tab="howit">How it Works</button>
                     <button class="tab-button" data-tab="specs">Specs</button>
                 </div>
 
                 <div class="tabs-content">
                     <!-- Origin Tab -->
-                    <div class="tab-pane active" id="origin">
+                    <div class="tab-pane" id="origin">
                         <h3>The Origin: From Toxic Workspaces to "Aural Melatonin"</h3>
                         <p>
                             The D1-40 was born on <strong>July 10, 2020</strong>, during the COVID-19 pandemic. It originated from a personal 
@@ -216,12 +216,25 @@
                     </div>
 
                     <!-- How it Works Tab -->
-                    <div class="tab-pane" id="howit">
+                    <div class="tab-pane active" id="howit">
                         <h3>How it Works: The Generative Engine</h3>
                         <p>
                             Unlike traditional music players, the D1-40 contains <strong>no pre-recorded samples</strong>. It is a 
                             <strong>generative synthesizer</strong> that creates music in real-time based on the following logic:
                         </p>
+                        <figure class="blossom-demo">
+                            <canvas id="blossom-demo-canvas" aria-label="Animation of a Blossom being walked, one puncture at a time"></canvas>
+                            <button type="button" id="blossom-demo-sound" class="blossom-demo-sound" aria-pressed="false">
+                                <svg class="sound-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/>
+                                    <path class="sound-waves" d="M15.5 9a4.2 4.2 0 0 1 0 6M18.2 6.5a8 8 0 0 1 0 11"/>
+                                    <path class="sound-mute" d="M16 9.5l5 5M21 9.5l-5 5"/>
+                                </svg>
+                                <span id="blossom-demo-sound-label">Sound off</span>
+                            </button>
+                            <figcaption id="blossom-demo-caption">Loading&hellip;</figcaption>
+                        </figure>
+
                         <ol>
                             <li>
                                 <strong>Blossoms as Maps:</strong> The device treats four specific geometric patterns—<strong>Bundok</strong> 
@@ -235,12 +248,15 @@
                             <li>
                                 <strong>Dynamic Parameters:</strong> Every composition is unique because the device randomly selects the 
                                 <strong>tempo, key, scale, timbre, and rhythm</strong>. It draws from <strong>nine musical scales</strong> 
-                                (such as Lydian, Prometheus, and Major Pentatonic) chosen specifically for their ability to induce relaxation.
+                                (such as Lydian, Hamsadhwani, and Major Pentatonic) chosen specifically for their ability to induce relaxation.
                             </li>
                             <li>
-                                <strong>Complex Soundscapes:</strong> The engine synthesizes a lead voice (the Blossom), a low bass accompaniment, 
-                                and two harmonic voices, often accompanied by synthesized environmental sounds like ocean-like white noise, birds, 
-                                radio static, or light percussive beats and rumbles.
+                                <strong>Complex Soundscapes:</strong> The engine synthesizes a lead voice (the Blossom), a low bass accompaniment,
+                                two harmonic voices, plucked strings, and a slow ambient pad that follows the chords, all sharing one musical
+                                clock and a lush stereo reverb. A built-in conductor thins the mix down to a few instruments and swells it back
+                                to the full ensemble over the course of a piece. Each Blossom also brings its own synthesized environmental
+                                texture: bird chirps for <strong>Dahon</strong>, ocean waves and whale calls for <strong>Alon</strong>, a cosmic
+                                solar wind for <strong>Bituin</strong>, and light percussive beats for <strong>Bundok</strong>.
                             </li>
                         </ol>
 
