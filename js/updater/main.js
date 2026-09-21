@@ -8,6 +8,7 @@ import { MusicBoxSerial } from './serial.js';
 import { HALFKAY_FILTER, parseIntelHex, flashImage } from './halfkay.js';
 import { fetchManifest, pickLatest, downloadFirmware } from './manifest.js';
 import { compareVersions, friendlyError } from './util.js';
+import { BlossomViz } from './blossom-viz.js';
 import { modalAlert, modalConfirm, modalPrompt } from './modal.js';
 
 const $ = (id) => document.getElementById(id);
@@ -150,26 +151,144 @@ function setConnStatus(msg, kind = '') {
   el.className = `status ${kind}`;
 }
 
+// One 1 Hz !GET_STATUS poll does double duty: liveness check (a few misses in
+// a row = cable pulled) and the feed for the live telemetry panel. The
+// firmware skips a reply when its USB TX buffer is congested, so a single
+// miss is normal and only a run of them counts as a lost connection.
+const POLL_MS = 1000;
+const POLL_MAX_MISSES = 4;
 let heartbeatTimer = null;
+let unsubLines = null;
 function startHeartbeat() {
   stopHeartbeat();
+  const s = state.serial;
+  if (!s) return;
+  startTelemetry(s);
+  let misses = 0;
+  let busy = false;
   heartbeatTimer = setInterval(async () => {
-    if (!state.serial) return stopHeartbeat();
+    if (state.serial !== s) return stopHeartbeat();
+    if (busy) return;
+    busy = true;
     try {
-      await state.serial.command('!GET_STATUS', {
+      await s.command('!GET_STATUS', {
         expect: (l) => l.startsWith('!STATUS'),
-        timeoutMs: 1500,
+        timeoutMs: 900,
         retries: 0,
       });
+      misses = 0;
     } catch {
-      stopHeartbeat();
-      markSerialDisconnected('Connection lost — check the USB cable.', 'err');
+      if (++misses >= POLL_MAX_MISSES) {
+        stopHeartbeat();
+        markSerialDisconnected('Connection lost — check the USB cable.', 'err');
+      }
+    } finally {
+      busy = false;
     }
-  }, 4000);
+  }, POLL_MS);
 }
 function stopHeartbeat() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = null;
+  stopTelemetry();
+}
+
+// ---------------------------------------------------------------------------
+// live telemetry + Blossom visualizer (Status tab)
+// ---------------------------------------------------------------------------
+const BLOSSOM_NAMES = ['Leaf', 'Radial', 'Wave', 'Mountain'];
+const KEY_NAMES = { 50: 'D', 51: 'D#', 52: 'E', 53: 'F', 54: 'F#', 55: 'G', 56: 'G#', 57: 'A', 58: 'A#', 59: 'B', 60: 'C', 61: 'C#', 62: 'D' };
+const SCALE_NAMES = ['Lydian', 'Mixolydian', 'Hamsadhwani', 'Egyptian', 'Major', 'Major Pentatonic', 'Minor Pentatonic', 'Dorian', 'Ryukyu'];
+const ALGO_NAMES = ['Skeletal', 'Random', 'Contour'];
+const ORDER_NAMES = ['Forward', 'Reverse', 'Broken', 'Jump', 'Walk 2F1B', 'Walk 2mF1mB', 'Walk Spiral', 'Walk Backtrack'];
+const TEL_IDS = ['blossom', 'regen', 'key', 'scale', 'tempo', 'algo', 'order'];
+
+let viz = null;
+let regenSync = null; // { sec, at } — last regen_sec from the device
+let regenTimer = null;
+
+function ensureViz() {
+  if (viz) return viz;
+  const canvas = $('blossom-canvas');
+  if (!canvas) return null;
+  viz = new BlossomViz(canvas, {
+    assetBase: `${import.meta.env.BASE_URL}blossom-viz/assets/`,
+    theme: {
+      threadColor: [0, 0, 0],
+      defaultColor: [0, 0, 0],
+      punctureStrokeColor: [0, 0, 0],
+      ringHoleColor: [255, 255, 255], // the page background
+      labelColor: [0, 0, 0],
+      // white puncture fills; the pop ring keeps each blossom's own color
+      blossomColors: Object.fromEntries(
+        ['DAHON', 'BITUIN', 'ALON', 'BUNDOK'].map((k) => [k, { punctureColor: [255, 255, 255] }])
+      ),
+    },
+  });
+  viz.start();
+  return viz;
+}
+
+const setTel = (id, text) => {
+  $(`tel-${id}`).textContent = text;
+};
+
+function fmtRegen(sec) {
+  const m = Math.floor(sec / 60);
+  return `${m}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+function renderRegen() {
+  if (!regenSync) return setTel('regen', '–:––');
+  const left = Math.max(0, regenSync.sec - Math.floor((Date.now() - regenSync.at) / 1000));
+  setTel('regen', fmtRegen(left));
+}
+
+function applyStatusLine(line) {
+  const f = {};
+  for (const tok of line.trim().split(/\s+/).slice(1)) {
+    const eq = tok.indexOf('=');
+    if (eq > 0) f[tok.slice(0, eq)] = tok.slice(eq + 1);
+  }
+  const name = (list, v) => list[Number(v)] ?? (v === undefined ? '—' : String(v));
+  if (f.blossom_type !== undefined) {
+    setTel('blossom', name(BLOSSOM_NAMES, f.blossom_type));
+    viz?.setBlossom(Number(f.blossom_type)); // idempotent; catches up a missed !TRIG
+  }
+  if (f.regen_sec !== undefined) {
+    regenSync = { sec: Number(f.regen_sec), at: Date.now() };
+    renderRegen();
+  }
+  if (f.root !== undefined) setTel('key', KEY_NAMES[Number(f.root)] ?? f.root);
+  if (f.scale !== undefined) setTel('scale', name(SCALE_NAMES, f.scale));
+  if (f.bpm !== undefined) setTel('tempo', `${Number(f.bpm).toFixed(1)} bpm`);
+  if (f.algo !== undefined) setTel('algo', name(ALGO_NAMES, f.algo));
+  if (f.order !== undefined) setTel('order', name(ORDER_NAMES, f.order));
+}
+
+function startTelemetry(s) {
+  stopTelemetry();
+  if (!state.device || state.device.legacy) return;
+  ensureViz();
+  show($('viz-placeholder'), false);
+  show($('viz-live'), true);
+  unsubLines = s.onLine((line) => {
+    if (line.startsWith('!STATUS')) applyStatusLine(line);
+    else if (line.startsWith('!TRIG')) viz?.applyTrigLine(line);
+  });
+  regenTimer = setInterval(renderRegen, 500);
+}
+
+function stopTelemetry() {
+  unsubLines?.();
+  unsubLines = null;
+  if (regenTimer) clearInterval(regenTimer);
+  regenTimer = null;
+  regenSync = null;
+  viz?.clear();
+  for (const id of TEL_IDS) setTel(id, '—');
+  show($('viz-live'), false);
+  show($('viz-placeholder'), true);
 }
 
 function markSerialDisconnected(msg, kind = 'warn') {

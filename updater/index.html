@@ -14,11 +14,11 @@
 <body>
     <nav class="nav">
         <div class="nav-container">
-            <a class="nav-logo" href="./">
-                <img src="images/logo_tahigami-music.svg" alt="Tahigami logo" class="nav-logo-img">
+            <a class="nav-logo" href="../">
+                <img src="/images/logo_tahigami-music.svg" alt="Tahigami logo" class="nav-logo-img">
                 <span class="nav-logo-text">TAHIGAMI</span>
             </a>
-            <a href="./" class="nav-cta">← Back to the Music Box</a>
+            <a href="../" class="nav-cta">← Back to the Music Box</a>
         </div>
     </nav>
 
@@ -26,7 +26,7 @@
         <header class="updater-head">
             <h1>Music Box Updater</h1>
             <p class="updater-sub">
-                Plug your Tahigami Music Box D1-40 into this computer with a USB cable, then connect
+                Plug your Tahigami Music Box D1-40 into this computer with a USB cable (must be data, not charging), then connect
                 below to update its firmware or change how it behaves.
             </p>
         </header>
@@ -56,8 +56,21 @@
                 </dl>
             </div>
 
-            <div class="visualizer-placeholder">
-                <span>Live Blossom visualizer — coming soon</span>
+            <div id="viz-placeholder" class="visualizer-placeholder">
+                <span>Connect the Music Box to see its Blossom live.</span>
+            </div>
+
+            <div id="viz-live" class="card viz-card" hidden>
+                <div class="viz-stage"><canvas id="blossom-canvas"></canvas></div>
+                <dl class="telemetry">
+                    <div><dt>Blossom</dt><dd id="tel-blossom">—</dd></div>
+                    <div><dt>Regen timer</dt><dd id="tel-regen">—</dd></div>
+                    <div><dt>Key</dt><dd id="tel-key">—</dd></div>
+                    <div><dt>Scale</dt><dd id="tel-scale">—</dd></div>
+                    <div><dt>Tempo</dt><dd id="tel-tempo">—</dd></div>
+                    <div><dt>Algorithm</dt><dd id="tel-algo">—</dd></div>
+                    <div><dt>Order</dt><dd id="tel-order">—</dd></div>
+                </dl>
             </div>
         </section>
 
