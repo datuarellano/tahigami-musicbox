@@ -197,7 +197,7 @@ function stopHeartbeat() {
 // ---------------------------------------------------------------------------
 // live telemetry + Blossom visualizer (Status tab)
 // ---------------------------------------------------------------------------
-const BLOSSOM_NAMES = ['Leaf', 'Radial', 'Wave', 'Mountain'];
+const BLOSSOM_NAMES = ['Dahon', 'Bituin', 'Alon', 'Bundok'];
 const KEY_NAMES = { 50: 'D', 51: 'D#', 52: 'E', 53: 'F', 54: 'F#', 55: 'G', 56: 'G#', 57: 'A', 58: 'A#', 59: 'B', 60: 'C', 61: 'C#', 62: 'D' };
 const SCALE_NAMES = ['Lydian', 'Mixolydian', 'Hamsadhwani', 'Egyptian', 'Major', 'Major Pentatonic', 'Minor Pentatonic', 'Dorian', 'Ryukyu'];
 const ALGO_NAMES = ['Skeletal', 'Random', 'Contour'];
