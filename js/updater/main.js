@@ -319,7 +319,7 @@ function renderConnectionState() {
   $('connect-btn').disabled = false;
   show($('device-info'), connected);
   if (connected) {
-    $('info-fw').textContent = legacy ? 'unknown (pre-2.1.0)' : state.device.fw || '?';
+    $('info-fw').textContent = legacy ? 'unknown (pre-2.5.0)' : state.device.fw || '?';
     $('info-sn').textContent = state.device.sn || '—';
   }
 
