@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="/css/updater.css">
 </head>
-<body>
+<body class="updater-page">
     <nav class="nav">
         <div class="nav-container">
             <a class="nav-logo" href="../">
@@ -26,9 +26,10 @@
         <header class="updater-head">
             <h1>Music Box Updater</h1>
             <p class="updater-sub">
-                Plug your Tahigami Music Box D1-40 into this computer with a USB cable (must be data, not charging), then connect
+                Plug your Tahigami Music Box D1-40 into this computer with a USB cable*, then connect
                 below to update its firmware or change how it behaves.
             </p>
+            <p class="updater-fine">*Must be a data cable, not just a charging cable.</p>
         </header>
 
         <div id="gate" class="gate" hidden></div>
@@ -61,15 +62,26 @@
             </div>
 
             <div id="viz-live" class="card viz-card" hidden>
+                <div class="tip viz-regen-wrap">
+                    <button type="button" id="regen-btn" class="btn btn-ghost viz-regen" aria-describedby="regen-tip">Regen</button>
+                    <p id="regen-tip" class="tip-text tip-right" role="tooltip">
+                        Start a fresh piece now, same as pressing the button on the Music Box.
+                    </p>
+                </div>
+                <div class="viz-timer">
+                    <span class="viz-timer-label">Regen timer</span>
+                    <span id="tel-regen" class="viz-timer-value">—</span>
+                </div>
                 <div class="viz-stage"><canvas id="blossom-canvas"></canvas></div>
                 <dl class="telemetry">
                     <div><dt>Blossom</dt><dd id="tel-blossom">—</dd></div>
-                    <div><dt>Regen timer</dt><dd id="tel-regen">—</dd></div>
+                    <div><dt>Sound</dt><dd id="tel-sound">—</dd></div>
                     <div><dt>Key</dt><dd id="tel-key">—</dd></div>
                     <div><dt>Scale</dt><dd id="tel-scale">—</dd></div>
                     <div><dt>Tempo</dt><dd id="tel-tempo">—</dd></div>
                     <div><dt>Algorithm</dt><dd id="tel-algo">—</dd></div>
                     <div><dt>Order</dt><dd id="tel-order">—</dd></div>
+                    <div><dt>Light</dt><dd id="tel-light">—</dd></div>
                 </dl>
             </div>
         </section>
@@ -86,30 +98,33 @@
                     </div>
                     <div class="fw-compare-col">
                         <span class="fw-compare-label">Latest</span>
-                        <span id="fw-latest-version" class="fw-compare-version">—</span>
+                        <div class="fw-latest-row">
+                            <span id="fw-latest-version" class="fw-compare-version">—</span>
+                            <div class="whats-new">
+                                <button type="button" id="whats-new-btn" class="link-btn" hidden>
+                                    What's new in <span id="whats-new-version"></span>
+                                </button>
+                                <div id="whats-new-popover" class="popover" hidden>
+                                    <button type="button" id="whats-new-close" class="popover-close" aria-label="Close">×</button>
+                                    <h3>What's new in <span id="whats-new-popover-version"></span></h3>
+                                    <ul id="whats-new-list"></ul>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <span id="fw-badge" class="fw-badge" hidden></span>
                 </div>
                 <p id="fw-hint" class="hint">Connect in the Status tab to see your installed version.</p>
 
-                <div class="whats-new">
-                    <button type="button" id="whats-new-btn" class="link-btn" hidden>
-                        What's new in <span id="whats-new-version"></span>
-                    </button>
-                    <div id="whats-new-popover" class="popover" hidden>
-                        <button type="button" id="whats-new-close" class="popover-close" aria-label="Close">×</button>
-                        <h3>What's new in <span id="whats-new-popover-version"></span></h3>
-                        <ul id="whats-new-list"></ul>
+                <div id="fw-pre">
+                    <div class="btn-row tip">
+                        <button type="button" id="fw-start" class="btn btn-primary" aria-describedby="fw-start-tip" disabled>Update firmware</button>
+                        <p id="fw-start-tip" class="tip-text" role="tooltip">
+                            Restarts your Music Box into update mode and asks your browser to connect
+                            to it. It may just say <b>“Unknown Device (16C0:0478)”</b> — that's
+                            normal; it's your Music Box. Go ahead and select it.
+                        </p>
                     </div>
-                </div>
-
-                <p class="hint">
-                    Clicking below restarts your Music Box into update mode and asks your browser
-                    to connect to it. It may just say <b>“Unknown Device (16C0:0478)”</b> — that's
-                    normal; it's your Music Box. Go ahead and select it.
-                </p>
-                <div class="btn-row">
-                    <button type="button" id="fw-start" class="btn btn-primary" disabled>Update firmware</button>
                 </div>
                 <div id="fw-flash-row" class="btn-row" hidden>
                     <p class="hint">
@@ -119,32 +134,40 @@
                     <button type="button" id="fw-flash" class="btn btn-primary" disabled>Flash firmware now</button>
                 </div>
 
+                <div id="fw-done" class="fw-done" role="status" hidden>
+                    <span class="fw-done-icon" aria-hidden="true">✓</span>
+                    <div>
+                        <strong class="fw-done-title">Update complete! 🎉</strong>
+                        <span id="fw-done-sub" class="fw-done-sub"></span>
+                    </div>
+                </div>
+
                 <p id="fw-status" class="status"></p>
                 <progress id="fw-progress" value="0" max="100" hidden></progress>
                 <pre id="fw-log" class="fw-log" hidden></pre>
 
                 <div id="fw-post" class="sub-row" hidden>
-                    <span>Reconnect to check the new version.</span>
+                    <span id="fw-post-msg">Reconnect to check the new version.</span>
                     <button type="button" id="fw-reconnect" class="link-btn">Reconnect</button>
                 </div>
-
-                <details class="fw-help">
-                    <summary>What happens when you update?</summary>
-                    <ol>
-                        <li>Your Music Box quietly steps into a safe setup mode built into the device.</li>
-                        <li>The new firmware is downloaded, double-checked for accuracy, and carefully written in.</li>
-                        <li>It restarts on its own and starts playing again — no buttons to press.</li>
-                    </ol>
-                    <p>
-                        Please keep the USB cable plugged in until you see <em>Done</em>. Your saved
-                        settings come along for the ride whenever the new firmware supports them.
-                        If anything looks off afterwards, just click <b>Reconnect</b> above. Along
-                        the way your browser will ask which device to connect to — it may show up
-                        with an unfriendly name like "Unknown Device"; that's just your Music Box
-                        in update mode, so pick it.
-                    </p>
-                </details>
             </div>
+
+            <details class="card versions-card fw-help">
+                <summary>What happens when you update?</summary>
+                <ol>
+                    <li>Your Music Box quietly steps into a safe setup mode built into the device.</li>
+                    <li>The new firmware is downloaded, double-checked for accuracy, and carefully written in.</li>
+                    <li>It restarts on its own and starts playing again — no buttons to press.</li>
+                </ol>
+                <p>
+                    Please keep the USB cable plugged in until you see <em>Done</em>. Your saved
+                    settings come along for the ride whenever the new firmware supports them.
+                    If anything looks off afterwards, just use the <b>Reconnect</b> link. Along
+                    the way your browser will ask which device to connect to — it may show up
+                    with an unfriendly name like "Unknown Device"; that's just your Music Box
+                    in update mode, so pick it.
+                </p>
+            </details>
 
             <details class="card versions-card">
                 <summary>Other versions</summary>
