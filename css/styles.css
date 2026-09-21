@@ -780,6 +780,34 @@ h1, h2, h3, h4 {
     padding: 0;
 }
 
+.blossom-demo {
+    margin: var(--spacing-md) auto;
+    width: min(100%, 460px);
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.blossom-demo canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+}
+
+.blossom-demo figcaption {
+    padding: 0.7rem 1rem 0.9rem;
+    border-top: 1px dashed #c9d7cb;
+    font-size: 0.95rem;
+    color: var(--color-text-light);
+    text-align: center;
+}
+
+.blossom-demo figcaption strong {
+    color: #2a6f31;
+}
+
 .tab-pane {
     display: none;
     animation: fadeIn 0.3s ease;
