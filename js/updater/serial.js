@@ -15,6 +15,15 @@ export class MusicBoxSerial {
     this._pipeDone = null;
     this._buf = '';
     this._waiters = new Set();
+    this._listeners = new Set(); // every "!" line, for passive telemetry
+    this._writeChain = Promise.resolve();
+  }
+
+  // Subscribe to every incoming "!" line (!STATUS, !TRIG, ...). Returns an
+  // unsubscribe function.
+  onLine(fn) {
+    this._listeners.add(fn);
+    return () => this._listeners.delete(fn);
   }
 
   static supported() {
@@ -44,7 +53,15 @@ export class MusicBoxSerial {
           while ((m = this._buf.match(/\r?\n/))) {
             const line = this._buf.slice(0, m.index);
             this._buf = this._buf.slice(m.index + m[0].length);
-            if (line.startsWith('!')) for (const w of this._waiters) w(line);
+            if (!line.startsWith('!')) continue;
+            for (const w of this._waiters) w(line);
+            for (const l of this._listeners) {
+              try {
+                l(line);
+              } catch {
+                /* a bad listener must not kill the read loop */
+              }
+            }
           }
         }
       } catch {
@@ -72,13 +89,20 @@ export class MusicBoxSerial {
     });
   }
 
-  async _write(text) {
-    const w = this.port.writable.getWriter();
-    try {
-      await w.write(new TextEncoder().encode(text));
-    } finally {
-      w.releaseLock();
-    }
+  // Serialized: the status poll and config commands can overlap, and a second
+  // getWriter() while one is held throws.
+  _write(text) {
+    const run = async () => {
+      const w = this.port.writable.getWriter();
+      try {
+        await w.write(new TextEncoder().encode(text));
+      } finally {
+        w.releaseLock();
+      }
+    };
+    const p = this._writeChain.then(run, run);
+    this._writeChain = p.catch(() => {});
+    return p;
   }
 
   async command(cmd, { expect, timeoutMs = 800, retries = 2 } = {}) {

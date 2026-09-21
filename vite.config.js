@@ -15,7 +15,7 @@ module.exports = defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
-        updater: path.resolve(__dirname, 'updater.html'),
+        updater: path.resolve(__dirname, 'updater/index.html'),
       },
     },
   },

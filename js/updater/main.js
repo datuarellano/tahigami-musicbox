@@ -8,6 +8,7 @@ import { MusicBoxSerial } from './serial.js';
 import { HALFKAY_FILTER, parseIntelHex, flashImage } from './halfkay.js';
 import { fetchManifest, pickLatest, downloadFirmware } from './manifest.js';
 import { compareVersions, friendlyError } from './util.js';
+import { BlossomViz } from './blossom-viz.js';
 import { modalAlert, modalConfirm, modalPrompt } from './modal.js';
 
 const $ = (id) => document.getElementById(id);
@@ -20,6 +21,7 @@ const state = {
   manifest: null,
   latest: null,
   fwImages: {}, // version -> parsed HalfKay image, cached per version
+  flashedVersion: null, // version just written, until a reconnect confirms it
 };
 
 // ---------------------------------------------------------------------------
@@ -150,26 +152,160 @@ function setConnStatus(msg, kind = '') {
   el.className = `status ${kind}`;
 }
 
+// One 1 Hz !GET_STATUS poll does double duty: liveness check (a few misses in
+// a row = cable pulled) and the feed for the live telemetry panel. The
+// firmware skips a reply when its USB TX buffer is congested, so a single
+// miss is normal and only a run of them counts as a lost connection.
+const POLL_MS = 1000;
+const POLL_MAX_MISSES = 4;
 let heartbeatTimer = null;
+let unsubLines = null;
 function startHeartbeat() {
   stopHeartbeat();
+  const s = state.serial;
+  if (!s) return;
+  startTelemetry(s);
+  let misses = 0;
+  let busy = false;
   heartbeatTimer = setInterval(async () => {
-    if (!state.serial) return stopHeartbeat();
+    if (state.serial !== s) return stopHeartbeat();
+    if (busy) return;
+    busy = true;
     try {
-      await state.serial.command('!GET_STATUS', {
+      await s.command('!GET_STATUS', {
         expect: (l) => l.startsWith('!STATUS'),
-        timeoutMs: 1500,
+        timeoutMs: 900,
         retries: 0,
       });
+      misses = 0;
     } catch {
-      stopHeartbeat();
-      markSerialDisconnected('Connection lost — check the USB cable.', 'err');
+      if (++misses >= POLL_MAX_MISSES) {
+        stopHeartbeat();
+        markSerialDisconnected('Connection lost — check the USB cable.', 'err');
+      }
+    } finally {
+      busy = false;
     }
-  }, 4000);
+  }, POLL_MS);
 }
 function stopHeartbeat() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = null;
+  stopTelemetry();
+}
+
+// ---------------------------------------------------------------------------
+// live telemetry + Blossom visualizer (Status tab)
+// ---------------------------------------------------------------------------
+const BLOSSOM_NAMES = ['Dahon', 'Bituin', 'Alon', 'Bundok'];
+const KEY_NAMES = { 50: 'D', 51: 'D#', 52: 'E', 53: 'F', 54: 'F#', 55: 'G', 56: 'G#', 57: 'A', 58: 'A#', 59: 'B', 60: 'C', 61: 'C#', 62: 'D' };
+const SCALE_NAMES = ['Lydian', 'Mixolydian', 'Hamsadhwani', 'Egyptian', 'Major', 'Major Pentatonic', 'Minor Pentatonic', 'Dorian', 'Ryukyu'];
+const ALGO_NAMES = ['Skeletal', 'Random', 'Contour'];
+const ORDER_NAMES = ['Forward', 'Reverse', 'Broken', 'Jump', 'Walk 2F1B', 'Walk 2mF1mB', 'Walk Spiral', 'Walk Backtrack'];
+// Blossom lead patch names, from the firmware's blossom_sound param.
+const SOUND_NAMES = ['Tri+Sine', 'EPiano', 'Voice', 'Flute', 'Saw', 'Morph', 'Sub Sine', 'Oct Stack', 'Fifth', 'Fat Detune', 'Cello Pad', 'Glass Bell', 'Karplus Guitar', 'Crazy Diamond'];
+// Light-sensor bands, mirroring the firmware's LDR_THRESHOLD_* constants.
+// Display only — the device makes the real decision and reports the raw value.
+const LDR_BANDS = [
+  [0.95, 'Chaos'],
+  [0.94, 'High'],
+  [0.74, 'Medium'],
+  [0.64, 'Low'],
+  [0.42, 'Dark'],
+];
+const ldrBand = (v) => (LDR_BANDS.find(([min]) => v >= min) || [0, 'Very dark'])[1];
+const TEL_IDS = ['blossom', 'sound', 'regen', 'key', 'scale', 'tempo', 'algo', 'order', 'light'];
+
+let viz = null;
+let regenSync = null; // { sec, at } — last regen_sec from the device
+let regenTimer = null;
+
+function ensureViz() {
+  if (viz) return viz;
+  const canvas = $('blossom-canvas');
+  if (!canvas) return null;
+  viz = new BlossomViz(canvas, {
+    assetBase: `${import.meta.env.BASE_URL}blossom-viz/assets/`,
+    theme: {
+      threadColor: [0, 0, 0],
+      defaultColor: [0, 0, 0],
+      punctureStrokeColor: [0, 0, 0],
+      ringHoleColor: [255, 255, 255], // the page background
+      labelColor: [0, 0, 0],
+      // white puncture fills; the pop ring keeps each blossom's own color
+      blossomColors: Object.fromEntries(
+        ['DAHON', 'BITUIN', 'ALON', 'BUNDOK'].map((k) => [k, { punctureColor: [255, 255, 255] }])
+      ),
+    },
+  });
+  viz.start();
+  return viz;
+}
+
+const setTel = (id, text) => {
+  $(`tel-${id}`).textContent = text;
+};
+
+function fmtRegen(sec) {
+  const m = Math.floor(sec / 60);
+  return `${m}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+function renderRegen() {
+  if (!regenSync) return setTel('regen', '–:––');
+  const left = Math.max(0, regenSync.sec - Math.floor((Date.now() - regenSync.at) / 1000));
+  setTel('regen', fmtRegen(left));
+}
+
+function applyStatusLine(line) {
+  const f = {};
+  for (const tok of line.trim().split(/\s+/).slice(1)) {
+    const eq = tok.indexOf('=');
+    if (eq > 0) f[tok.slice(0, eq)] = tok.slice(eq + 1);
+  }
+  const name = (list, v) => list[Number(v)] ?? (v === undefined ? '—' : String(v));
+  if (f.blossom_type !== undefined) {
+    setTel('blossom', name(BLOSSOM_NAMES, f.blossom_type));
+    $('tel-blossom').dataset.blossom = f.blossom_type; // drives the colour chip
+    viz?.setBlossom(Number(f.blossom_type)); // idempotent; catches up a missed !TRIG
+  }
+  if (f.regen_sec !== undefined) {
+    regenSync = { sec: Number(f.regen_sec), at: Date.now() };
+    renderRegen();
+  }
+  if (f.root !== undefined) setTel('key', KEY_NAMES[Number(f.root)] ?? f.root);
+  if (f.scale !== undefined) setTel('scale', name(SCALE_NAMES, f.scale));
+  if (f.bpm !== undefined) setTel('tempo', `${Number(f.bpm).toFixed(1)} bpm`);
+  if (f.algo !== undefined) setTel('algo', name(ALGO_NAMES, f.algo));
+  if (f.order !== undefined) setTel('order', name(ORDER_NAMES, f.order));
+  if (f.blossom_sound !== undefined) setTel('sound', name(SOUND_NAMES, f.blossom_sound));
+  if (f.ldr !== undefined) setTel('light', `${Number(f.ldr).toFixed(3)} · ${ldrBand(Number(f.ldr))}`);
+}
+
+function startTelemetry(s) {
+  stopTelemetry();
+  if (!state.device || state.device.legacy) return;
+  ensureViz();
+  show($('viz-placeholder'), false);
+  show($('viz-live'), true);
+  unsubLines = s.onLine((line) => {
+    if (line.startsWith('!STATUS')) applyStatusLine(line);
+    else if (line.startsWith('!TRIG')) viz?.applyTrigLine(line);
+  });
+  regenTimer = setInterval(renderRegen, 500);
+}
+
+function stopTelemetry() {
+  unsubLines?.();
+  unsubLines = null;
+  if (regenTimer) clearInterval(regenTimer);
+  regenTimer = null;
+  regenSync = null;
+  viz?.clear();
+  for (const id of TEL_IDS) setTel(id, '—');
+  delete $('tel-blossom').dataset.blossom;
+  show($('viz-live'), false);
+  show($('viz-placeholder'), true);
 }
 
 function markSerialDisconnected(msg, kind = 'warn') {
@@ -200,11 +336,15 @@ function renderConnectionState() {
   $('connect-btn').disabled = false;
   show($('device-info'), connected);
   if (connected) {
-    $('info-fw').textContent = legacy ? 'unknown (pre-2.1.0)' : state.device.fw || '?';
+    $('info-fw').textContent = legacy ? 'unknown (pre-2.5.0)' : state.device.fw || '?';
     $('info-sn').textContent = state.device.sn || '—';
   }
 
   reflectFirmware();
+
+  // "Reconnect to check the new version" only makes sense while disconnected;
+  // any path that ends up connected (Status tab, reconnect, auto) clears it.
+  if (connected) show($('fw-post'), false);
 
   const locked = !connected || legacy;
   show($('config-locked'), locked);
@@ -395,6 +535,24 @@ async function applyNow() {
   }
 }
 
+// Same as pressing the button on the box: fade out, roll a new piece, fade in.
+// The 1 Hz status poll picks up the new blossom/key/scale/timer on its own.
+async function regenNow() {
+  if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
+  const btn = $('regen-btn');
+  btn.disabled = true;
+  try {
+    await state.serial.regenerateNow();
+  } catch (e) {
+    setConnStatus(`Could not regenerate: ${friendlyError(e)}`, 'err');
+  } finally {
+    // Brief lockout: each press restarts the fade, so rapid clicks just churn.
+    setTimeout(() => {
+      btn.disabled = false;
+    }, 1500);
+  }
+}
+
 async function restoreStashed(ev) {
   if (!state.serial) return markSerialDisconnected('Please reconnect to the Music Box first.');
   const v = Number(ev.currentTarget.dataset.value);
@@ -557,6 +715,9 @@ function resetFlashSession() {
   show($('fw-flash-row'), false);
   $('fw-flash').disabled = true;
   show($('fw-post'), false);
+  show($('fw-done'), false);
+  show($('fw-pre'), true);
+  state.flashedVersion = null;
 }
 
 async function loadManifest() {
@@ -638,12 +799,23 @@ function reflectFirmware() {
   const legacy = connected && state.device.legacy;
   const cur = connected && !legacy ? state.device.fw : null;
 
-  $('fw-installed-version').textContent = legacy ? 'older' : cur || '—';
+  // A just-finished flash leaves us disconnected on purpose (the device
+  // reboots). Showing "—" and "connect to see your version" right under a
+  // "Done, now running 2.5.0" message read as a contradiction, so carry the
+  // version we just wrote until a reconnect confirms it for real.
+  const justFlashed = !connected && state.flashedVersion;
+  $('fw-installed-version').textContent = justFlashed
+    ? state.flashedVersion
+    : legacy
+      ? 'Unknown'
+      : cur || '—';
   $('fw-hint').textContent = connected
     ? legacy
-      ? 'This unit predates the version protocol, so its exact firmware is unknown.'
+      ? 'Your Music Box is running an earlier version that can\u2019t report which one. Updating brings it up to date and unlocks the Config tab.'
       : ''
-    : 'Connect in the Status tab to see your installed version.';
+    : justFlashed
+      ? 'Just installed — reconnect to confirm.'
+      : 'Connect in the Status tab to see your installed version.';
 
   const badge = $('fw-badge');
   const upToDate = cur && state.latest && compareVersions(cur, state.latest.version) >= 0;
@@ -745,12 +917,19 @@ async function ensureFirmwareImage(release) {
   return image;
 }
 
+function revealManualFlash() {
+  show($('fw-flash-row'), true);
+  $('fw-flash').disabled = false;
+}
+
 async function prepareDevice(release) {
   release = release || state.latest;
   flashTarget = release;
   $('fw-start').disabled = true;
-  show($('fw-flash-row'), true);
-  $('fw-flash').disabled = false;
+  // The manual "Flash firmware now" row stays hidden unless the automatic
+  // path needs help — see revealManualFlash().
+  show($('fw-flash-row'), false);
+  $('fw-flash').disabled = true;
 
   try {
     await ensureFirmwareImage(release);
@@ -767,8 +946,26 @@ async function prepareDevice(release) {
   let reason = state.device?.reason;
   if (!s) {
     s = new MusicBoxSerial();
+    setFwStatus(
+      'Choose your Music Box in the window that just opened (look near the top of your browser).',
+      'busy'
+    );
     try {
       await s.request();
+    } catch {
+      // Dismissed, or the list was empty — either way there's nothing to
+      // restart, so hand over to the manual route instead of a dead end.
+      setFwStatus(
+        'No Music Box was chosen. Make sure it\u2019s plugged in with a data cable and try again. ' +
+          'If it\u2019s already in update mode (silent, LED off), click \u201cFlash firmware now\u201d.',
+        'warn'
+      );
+      $('fw-start').disabled = false;
+      revealManualFlash();
+      return;
+    }
+    try {
+      setFwStatus('Connecting to the Music Box…', 'busy');
       await s.open(115200);
       const info = await s.handshake();
       proto = info && !info.legacy ? info.proto || 0 : 0;
@@ -786,6 +983,7 @@ async function prepareDevice(release) {
         'warn'
       );
       $('fw-start').disabled = false;
+      revealManualFlash();
       return;
     }
   }
@@ -838,14 +1036,20 @@ async function prepareDevice(release) {
   // Otherwise: if permission exists, the connect listener will fire; if not,
   // the user must click "Flash firmware now" while HalfKay is up.
   const granted = (await navigator.hid.getDevices()).some(HALFKAY_IS);
-  setFwStatus(
-    granted
-      ? 'Waiting for update mode… it should start on its own.'
-      : 'When the Music Box goes silent, click “Flash firmware now” right away and pick it ' +
-          'from the list. It only stays in update mode for a few seconds — if you miss it, ' +
-          'just click again.',
-    'warn'
-  );
+  if (granted) {
+    setFwStatus('Waiting for update mode… it should start on its own.', 'warn');
+    // Automatic start is expected; only offer the manual button if it doesn't.
+    setTimeout(() => {
+      if (flashTarget && !flashInFlight) revealManualFlash();
+    }, 8000);
+  } else {
+    setFwStatus(
+      'When the Music Box goes silent, click “Flash firmware now” below and pick “Unknown Device”. ' +
+        'It only stays in update mode for a few seconds — if you miss it, just click again.',
+      'warn'
+    );
+    revealManualFlash();
+  }
 }
 
 async function flashFirmware() {
@@ -886,7 +1090,7 @@ async function flashNow(device, release) {
   bar.value = 0;
   try {
     const image = await ensureFirmwareImage(release);
-    setFwStatus(`Writing firmware v${release.version} — keep the cable connected.`, 'busy');
+    setFwStatus(`Writing firmware v${release.version} — please don\u2019t unplug the cable.`, 'busy');
     const result = await flashImage(device, image, {
       onProgress: (done, total) => {
         bar.max = total;
@@ -894,15 +1098,24 @@ async function flashNow(device, release) {
       },
       log: fwLog,
     });
-    if (result?.rebooted === false) {
-      setFwStatus(
-        `Firmware written, but the Music Box didn’t restart on its own. Unplug the USB cable ` +
-          `for a few seconds, then plug it back in — it’ll come up running firmware ${release.version}.`,
-        'warn'
-      );
-    } else {
-      setFwStatus(`Done. The Music Box is now running firmware ${release.version}.`, 'ok');
-    }
+    // The firmware is on the device either way, so the instructions for
+    // starting an update (and the finished progress bar, and the running
+    // commentary in the log) have nothing left to say — clear them so the
+    // outcome isn't the fourth line of a stack that all says the same thing.
+    show($('fw-pre'), false);
+    show($('fw-flash-row'), false);
+    show(bar, false);
+    $('fw-log').hidden = true;
+    state.flashedVersion = release.version;
+    setFwStatus('');
+    $('fw-done-sub').textContent = `Your Music Box is now running firmware ${release.version}.`;
+    show($('fw-done'), true);
+    $('fw-post-msg').textContent =
+      result?.rebooted === false
+        ? 'It didn’t restart on its own: unplug the USB cable for a few seconds and plug it back ' +
+          'in, then reconnect.'
+        : 'Your Music Box is restarting. Reconnect once it’s playing again.';
+    reflectFirmware();
     show($('fw-post'), true);
   } catch (e) {
     setFwStatus(`Update failed: ${friendlyError(e)}`, 'err');
@@ -910,7 +1123,7 @@ async function flashNow(device, release) {
       'If it\u2019s still in update mode, you can just try again. Otherwise click \u201cUpdate ' +
         'firmware\u201d to restart it into update mode, then try again.'
     );
-    $('fw-flash').disabled = false;
+    revealManualFlash();
     $('fw-start').disabled = false;
   } finally {
     flashInFlight = false;
@@ -993,6 +1206,7 @@ function wire() {
   $('regen-input')?.addEventListener('input', syncFromInput);
   $('timer-save')?.addEventListener('click', saveTimer);
   $('apply-now')?.addEventListener('click', applyNow);
+  $('regen-btn')?.addEventListener('click', regenNow);
   $('restore-btn')?.addEventListener('click', restoreStashed);
 
   wireRangeNumber('volcap-range', 'volcap-input', 0, 100);

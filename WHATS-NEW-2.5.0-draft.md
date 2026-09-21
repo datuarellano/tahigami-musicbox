@@ -1,19 +1,7 @@
-# What's new in 2.1.0 — draft
+# What's new in 2.5.0
 
-Pulled from every commit between the `v2.0.0` tag and this branch's tip in the
-D1-40 repo. Written for an owner, not a developer — anything purely internal
-(soundlab dev-tool changes, refactors with no audible effect, build tooling)
-is left out. Commit hashes are in the D1-40 repo, in `()` at the end of each
-line, so you can double-check or dig deeper before editing.
-
-Edit freely — reorder, cut, rewrite, whatever reads best. Once you're happy,
-the final wording goes into `public/firmware/manifest.json`'s `2.1.0` release
-`notes` (and/or the "What's new" popover in the updater).
-
-## Already in the current 2.1.0 notes (for reference, not re-deriving these)
-
-- This updater and configurator app, right here in your browser.
-  new piece — was fixed at 40.
+- This updater and configurator app, right here in your browser. The timer
+  for starting a new piece is now yours to set — it was fixed at 40.
 - The Music Box can now tell this app which firmware it's running.
 
 ## Owner customizations
@@ -60,11 +48,36 @@ the final wording goes into `public/firmware/manifest.json`'s `2.1.0` release
   can wander through, on top of the existing ones, for more variety from
   one piece to the next.
 
+## Reverb
+
+- Replaced the old mono reverb with a lush stereo plate reverb: wider, smoother
+  tails that respond to the light sensor.
+- The ambient pad and the guitar Blossom patch now bloom into the reverb too.
+- Fixed a crackle in the reverb tail and tamed a few loud peaks in the wet
+  signal.
+
+## Balance & shaping
+
+- New "Conductor" keeps the voices balanced against each other and cues them
+  in and out over the course of a piece, with a smooth build and fade toward
+  the end.
+- Light-sensor gestures that were being overwritten every moment now actually
+  come through.
+
+## Light & CHAOS
+
+- CHAOS mode got more dramatic: the pad holds its chord, the bass drones the
+  tonic, chorus/flange and voices open wide, Radial alternates between solar
+  sounds, and Mountain's percussion goes full-tilt.
+
 ## Regeneration button
 
 - Pressing the button now gives a soft beep, and releasing it plays a small
   bell-like gong.
 - The button also hints at the next piece's key before it starts.
+- Each new piece now rolls the dice on more things: the chord engine and
+  Conductor are on for about three in four pieces, and the reverb amount
+  varies from piece to piece, so no two feel quite alike.
 
 ## Bass
 
@@ -82,6 +95,9 @@ the final wording goes into `public/firmware/manifest.json`'s `2.1.0` release
 - Percussion patterns are sparser and softer — less busy.
 
 ## Texture
+
+- New "Solar Wind" sound for Radial Blossom, now its default: a cosmic texture
+  of radio-burst sweeps, whistlers, flares and ticks.
 
 - Added chorus/flanger movement to the harmony, strings, and Blossom voices
   for more depth and shimmer.
@@ -117,3 +133,8 @@ the final wording goes into `public/firmware/manifest.json`'s `2.1.0` release
   volume instead of fading in smoothly.
 - Fixed a bug where telling Blossom to rest didn't always actually make it
   go quiet.
+- Fixed a bug where Blossom's rest state could get stuck after leaving
+  pattern mode, and where overlapping CHAOS triggers could leave the settings
+  stuck at the wrong values afterward.
+- Fixed a volume-smoothing double-filter bug that made the Wave and Mountain
+  light responses sluggish.
