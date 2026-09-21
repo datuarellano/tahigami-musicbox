@@ -226,6 +226,7 @@ function ensureViz() {
   if (!canvas) return null;
   viz = new BlossomViz(canvas, {
     assetBase: `${import.meta.env.BASE_URL}blossom-viz/assets/`,
+    trail: true,
     theme: {
       threadColor: [0, 0, 0],
       defaultColor: [0, 0, 0],

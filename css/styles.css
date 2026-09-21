@@ -782,7 +782,7 @@ h1, h2, h3, h4 {
 
 .blossom-demo {
     margin: var(--spacing-md) auto;
-    width: min(100%, 460px);
+    width: min(100%, 640px);
     background: #ffffff;
     border: 1px solid var(--color-border);
     border-radius: 10px;
@@ -793,7 +793,7 @@ h1, h2, h3, h4 {
 .blossom-demo canvas {
     display: block;
     width: 100%;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 16 / 10;
 }
 
 .blossom-demo figcaption {
@@ -802,6 +802,50 @@ h1, h2, h3, h4 {
     font-size: 0.95rem;
     color: var(--color-text-light);
     text-align: center;
+}
+
+.blossom-demo { position: relative; }
+
+.blossom-demo-sound {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    z-index: 1;
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    padding: 0.35em 0.9em;
+    border: 1px solid var(--color-fg);
+    border-radius: 999px;
+    background: #ffffff;
+    color: var(--color-fg);
+    cursor: pointer;
+}
+
+.blossom-demo-sound {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+}
+
+.sound-icon {
+    flex: none;
+}
+
+/* Off: speaker with an x. On: speaker with sound waves. */
+.blossom-demo-sound[aria-pressed="true"] .sound-mute,
+.blossom-demo-sound[aria-pressed="false"] .sound-waves {
+    display: none;
+}
+
+.blossom-demo-sound:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.blossom-demo-scale {
+    display: block;
+    margin-top: 0.15em;
+    font-size: 0.8rem;
+    font-style: italic;
 }
 
 .blossom-demo figcaption strong {

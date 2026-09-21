@@ -3,8 +3,10 @@
 // device, without sound or the walk orders — that cycles through every
 // blossom and each of its three algorithms.
 import { BlossomViz } from './updater/blossom-viz.js';
-import { BLOSSOMS } from './blossom-graphs.js';
+import { BLOSSOMS, SCALES, DEMO_SCALE } from './blossom-graphs.js';
+import { enableAudio, playNote } from './blossom-demo-audio.js';
 
+const ROOT_MIDI = 55; // G3, inside the firmware's D3-D4 key range
 const STEP_MS = 360; // one note
 const NOTES_PER_SCENE = 16;
 const ALGORITHMS = [
@@ -45,6 +47,7 @@ export function initBlossomDemo() {
 
   const viz = new BlossomViz(canvas, {
     assetBase: `${import.meta.env.BASE_URL}blossom-viz/assets/`,
+    trail: { length: 8, fadeMs: 2200 }, // slower pace, so let the ripples linger
     theme: {
       threadColor: [0, 0, 0],
       defaultColor: [0, 0, 0],
@@ -68,8 +71,17 @@ export function initBlossomDemo() {
   let running = false;
 
   const setCaption = ({ key, algo }) => {
-    caption.innerHTML = `<strong>${BLOSSOMS[key].label}</strong> · ${algo.name} — ${algo.blurb}`;
+    const scale = SCALES[DEMO_SCALE[key]].name;
+    caption.innerHTML =
+      `<strong>${BLOSSOMS[key].label}</strong> · ${algo.name} — ${algo.blurb}` +
+      `<span class="blossom-demo-scale">${scale}</span>`;
   };
+
+  // Same mapping as the device: puncture -> ladder slot -> scale offset.
+  const midiFor = (key, puncture) =>
+    ROOT_MIDI + SCALES[DEMO_SCALE[key]].steps[BLOSSOMS[key].pitch[puncture]];
+
+  let soundOn = false;
 
   async function beginScene() {
     const { key, algo } = scenes[sceneIdx];
@@ -86,7 +98,9 @@ export function initBlossomDemo() {
         sceneIdx = (sceneIdx + 1) % scenes.length;
         await beginScene();
       }
-      viz.trigger(walk[stepIdx++]);
+      const puncture = walk[stepIdx++];
+      viz.trigger(puncture);
+      if (soundOn) playNote(midiFor(scenes[sceneIdx].key, puncture));
     }
     timer = setTimeout(tick, STEP_MS);
   }
@@ -105,7 +119,19 @@ export function initBlossomDemo() {
     viz.stop();
   }
 
+  const soundBtn = document.getElementById('blossom-demo-sound');
+  const renderSound = () => {
+    document.getElementById('blossom-demo-sound-label').textContent = soundOn ? 'Sound on' : 'Sound off';
+    soundBtn.setAttribute('aria-pressed', String(soundOn));
+  };
+  soundBtn?.addEventListener('click', async () => {
+    if (!soundOn && !(await enableAudio())) return;
+    soundOn = !soundOn;
+    renderSound();
+  });
+
   if (reduceMotion) {
+    soundBtn?.setAttribute('hidden', '');
     // No looping animation for people who've asked for less motion: just the
     // blossom, still, with its name.
     viz.start();
